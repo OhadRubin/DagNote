@@ -118,9 +118,9 @@ const DAGNoteEditor = () => {
         if (clickedNode) {
             console.log("Edit node:", clickedNode.id);
             setEditingNode(clickedNode);
-        } else {
+          } else {
             createNode(point.x, point.y);
-        }
+          }
     };
 
     const handleKeyDown = (event) => {
@@ -142,10 +142,11 @@ const DAGNoteEditor = () => {
             id: `node-${Date.now()}`,
             x,
             y,
-            text: 'New Node',
+            text: '',
         };
         console.log("Creating node:", newNode);
         setNodes(prevNodes => [...prevNodes, newNode]);
+        setEditingNode(newNode);
     };
 
     const createEdge = (fromNodeId, toNodeId) => {
