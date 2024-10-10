@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import NodeMetadataEditor from './NodeMetadataEditor';
 import './styles.css'; // Import the CSS file
+import PortCircle from './PortCircle'; // Import the new PortCircle component
 
 const DAGNoteEditor = () => {
     const [nodes, setNodes] = useState([]);
@@ -150,11 +151,11 @@ const DAGNoteEditor = () => {
         }
     };
 
-    // Update the handleKeyDown function
+    // Key event handlers (unchanged)
     const handleKeyDown = (event) => {
         if (event.key === 'Shift') {
             setIsShiftPressed(true);
-        } else if (event.key === 'Backspace' && (selectedNodeId || focusedNodeId) && !isMetadataEditorFocused) {
+        } else if (event.key === 'Backspace' && selectedNodeId) {
             deleteSelectedNode();
         } else if (event.ctrlKey && event.key === 'z') {
             undo();
@@ -215,20 +216,17 @@ const DAGNoteEditor = () => {
         setSelectedNodeId(newNode.id);
     };
 
-    // Update the deleteSelectedNode function
     const deleteSelectedNode = () => {
-        if (isMetadataEditorFocused || editingNode) {
-            return;
-        }
-        const nodeIdToDelete = selectedNodeId || focusedNodeId;
-        if (!nodeIdToDelete) return;
 
-        let updatedEdges = [];
-        setNodes(prevNodes => {
-            const updatedNodes = prevNodes.filter(node => node.id !== nodeIdToDelete);
+        if ( isMetadataEditorFocused || editingNode) {
+          return 
+        }
+            let updatedEdges = [];
+            setNodes(prevNodes => {
+            const updatedNodes = prevNodes.filter(node => node.id !== selectedNodeId);
             setEdges(prevEdges => {
                 updatedEdges = prevEdges.filter(edge =>
-                    edge.fromNodeId !== nodeIdToDelete && edge.toNodeId !== nodeIdToDelete
+                    edge.fromNodeId !== selectedNodeId && edge.toNodeId !== selectedNodeId
                 );
                 saveState(updatedNodes, updatedEdges);
                 return updatedEdges;
@@ -236,15 +234,18 @@ const DAGNoteEditor = () => {
             return updatedNodes;
         });
         setSelectedNodeId(null);
-        setFocusedNodeId(null);
     };
 
+    // Update the edge data structure to include ports
+    // When creating an edge, include ports with labels
     const createEdge = (fromNodeId, toNodeId) => {
         if (!edgeExists(fromNodeId, toNodeId)) {
             const newEdge = {
                 id: `edge-${Date.now()}`,
                 fromNodeId,
                 toNodeId,
+                fromPort: { label: 'Output', metadata: {} }, // Default output port
+                toPort: { label: 'Input', metadata: {} }     // Default input port
             };
             setEdges(prevEdges => {
                 const updatedEdges = [...prevEdges, newEdge];
@@ -261,12 +262,11 @@ const DAGNoteEditor = () => {
         );
     };
 
-    // Update the handleMetadataUpdate function
+    // Function to handle metadata update
     const handleMetadataUpdate = (updatedMetadata) => {
         setNodes((prevNodes) => {
-            const nodeIdToUpdate = selectedNodeId || focusedNodeId;
             const updatedNodes = prevNodes.map((node) =>
-                node.id === nodeIdToUpdate
+                node.id === selectedNodeId
                     ? { ...node, metadata: updatedMetadata }
                     : node
             );
@@ -316,7 +316,7 @@ const DAGNoteEditor = () => {
         };
     };
 
-    // Update the renderEdge function
+    // Modify the renderEdge function
     const renderEdge = (edge) => {
         const fromNode = nodes.find(node => node.id === edge.fromNodeId);
         const toNode = nodes.find(node => node.id === edge.toNodeId);
@@ -325,9 +325,14 @@ const DAGNoteEditor = () => {
         const startPoint = calculateIntersection(fromNode, toNode);
         const endPoint = calculateIntersection(toNode, fromNode);
 
-        // Calculate the midpoint of the edge
-        const midX = (startPoint.x + endPoint.x) / 2;
-        const midY = (startPoint.y + endPoint.y) / 2;
+        const oneThirdPoint = {
+            x: startPoint.x + (endPoint.x - startPoint.x) / 3,
+            y: startPoint.y + (endPoint.y - startPoint.y) / 3,
+        };
+        const twoThirdsPoint = {
+            x: startPoint.x + 2 * (endPoint.x - startPoint.x) / 3,
+            y: startPoint.y + 2 * (endPoint.y - startPoint.y) / 3,
+        };
 
         return (
             <g key={edge.id}>
@@ -340,11 +345,19 @@ const DAGNoteEditor = () => {
                     strokeWidth="2"
                     markerEnd="url(#arrowhead)"
                 />
-                <circle
-                    cx={midX}
-                    cy={midY}
-                    r="3"
-                    fill="black"
+                <PortCircle
+                    x={oneThirdPoint.x}
+                    y={oneThirdPoint.y}
+                    port={edge.fromPort || { label: 'Output', metadata: {} }}
+                    nodeId={edge.fromNodeId}
+                    color="green"
+                />
+                <PortCircle
+                    x={twoThirdsPoint.x}
+                    y={twoThirdsPoint.y}
+                    port={edge.toPort || { label: 'Input', metadata: {} }}
+                    nodeId={edge.toNodeId}
+                    color="blue"
                 />
             </g>
         );
