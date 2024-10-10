@@ -26,6 +26,33 @@ const DAGNoteEditor = () => {
         return Math.sqrt(dx * dx + dy * dy) <= nodeRadius;
     };
 
+    // Add these new function definitions
+    const getTransformedPoint = (event) => {
+        const svg = svgRef.current;
+        const g = gRef.current;
+        const point = svg.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        const transformedPoint = point.matrixTransform(g.getScreenCTM().inverse());
+        return {
+            x: transformedPoint.x,
+            y: transformedPoint.y
+        };
+    };
+
+    const getNodeAtPoint = (x, y) => {
+        return nodes.find(node => isPointInsideNode({x, y}, node));
+    };
+
+    const handleNodeTextChange = (event, nodeId) => {
+        const newText = event.target.value;
+        setNodes(prevNodes =>
+            prevNodes.map(node =>
+                node.id === nodeId ? {...node, text: newText } : node
+            )
+        );
+    };
+
     // Update the handleMouseDown function
     const handleMouseDown = (event) => {
         const point = getTransformedPoint(event);
@@ -140,32 +167,33 @@ const DAGNoteEditor = () => {
         );
     };
 
-    // Update the getTransformedPoint function
-    const getTransformedPoint = (event) => {
-        const svg = svgRef.current;
-        const g = gRef.current;
-        const point = svg.createSVGPoint();
-        point.x = event.clientX;
-        point.y = event.clientY;
-        const transformedPoint = point.matrixTransform(g.getScreenCTM().inverse());
+    // Add this new utility function to calculate intersection points
+    const calculateIntersection = (fromNode, toNode) => {
+        const nodeWidth = 100;  // Width of the node rectangle
+        const nodeHeight = 60;  // Height of the node rectangle
+
+        const dx = toNode.x - fromNode.x;
+        const dy = toNode.y - fromNode.y;
+
+        const angle = Math.atan2(dy, dx);
+
+        // Calculate the point where the line intersects the rectangle
+        let intersectionX, intersectionY;
+
+        if (Math.abs(Math.cos(angle)) > Math.abs(Math.sin(angle))) {
+            // Intersects with left or right side
+            intersectionX = Math.sign(dx) * (nodeWidth / 2);
+            intersectionY = dy * (intersectionX / dx);
+        } else {
+            // Intersects with top or bottom side
+            intersectionY = Math.sign(dy) * (nodeHeight / 2);
+            intersectionX = dx * (intersectionY / dy);
+        }
+
         return {
-            x: transformedPoint.x,
-            y: transformedPoint.y
+            x: fromNode.x + intersectionX,
+            y: fromNode.y + intersectionY
         };
-    };
-
-    // Update the getNodeAtPoint function
-    const getNodeAtPoint = (x, y) => {
-        return nodes.find(node => isPointInsideNode({x, y}, node));
-    };
-
-    const handleNodeTextChange = (event, nodeId) => {
-        const newText = event.target.value;
-        setNodes(prevNodes =>
-            prevNodes.map(node =>
-                node.id === nodeId ? {...node, text: newText } : node
-            )
-        );
     };
 
     // Update the renderEdge function
@@ -174,13 +202,16 @@ const DAGNoteEditor = () => {
         const toNode = nodes.find(node => node.id === edge.toNodeId);
         if (!fromNode || !toNode) return null;
 
+        const startPoint = calculateIntersection(fromNode, toNode);
+        const endPoint = calculateIntersection(toNode, fromNode);
+
         return (
             <line
                 key={edge.id}
-                x1={fromNode.x}
-                y1={fromNode.y}
-                x2={toNode.x}
-                y2={toNode.y}
+                x1={startPoint.x}
+                y1={startPoint.y}
+                x2={endPoint.x}
+                y2={endPoint.y}
                 stroke="black"
                 strokeWidth="2"
                 markerEnd="url(#arrowhead)"
