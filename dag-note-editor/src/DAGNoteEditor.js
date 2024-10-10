@@ -151,7 +151,7 @@ const DAGNoteEditor = () => {
     const handleKeyDown = (event) => {
         if (event.key === 'Shift') {
             setIsShiftPressed(true);
-        } else if (event.key === 'Backspace' && selectedNodeId && !isMetadataEditorFocused) {
+        } else if (event.key === 'Backspace' && selectedNodeId && !isMetadataEditorFocused && !editingNode) {
             deleteSelectedNode();
         } else if (event.ctrlKey && event.key === 'z') {
             undo();
