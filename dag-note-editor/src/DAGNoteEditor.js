@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowRightIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import NodeMetadataEditor from './NodeMetadataEditor';
+import './styles.css'; // Import the CSS file
 
 const DAGNoteEditor = () => {
     const [nodes, setNodes] = useState([]);
@@ -22,14 +23,19 @@ const DAGNoteEditor = () => {
 
     const nodeRadius = 50; // Adjust this value based on your node size
 
-    // Update the isPointInsideNode function
+    // Derive selectedNode from nodes and selectedNodeId
+    const selectedNode = useMemo(
+        () => nodes.find((node) => node.id === selectedNodeId),
+        [nodes, selectedNodeId]
+    );
+
+    // Utility functions (unchanged)
     const isPointInsideNode = (point, node) => {
-        const dx = point.x - (node.x);
-        const dy = point.y - (node.y);
+        const dx = point.x - node.x;
+        const dy = point.y - node.y;
         return Math.sqrt(dx * dx + dy * dy) <= nodeRadius;
     };
 
-    // Add these new function definitions
     const getTransformedPoint = (event) => {
         const svg = svgRef.current;
         const g = gRef.current;
@@ -44,7 +50,7 @@ const DAGNoteEditor = () => {
     };
 
     const getNodeAtPoint = (x, y) => {
-        return nodes.find(node => isPointInsideNode({x, y}, node));
+        return nodes.find(node => isPointInsideNode({ x, y }, node));
     };
 
     const handleNodeTextChange = (event, nodeId) => {
@@ -62,22 +68,29 @@ const DAGNoteEditor = () => {
         const clickedNode = getNodeAtPoint(point.x, point.y);
 
         if (event.button === 0) { // Left mouse button
-            if (isShiftPressed) {
-                if (clickedNode) {
+            if (clickedNode) {
+                if (isShiftPressed) {
+                    // Start edge creation
                     setEdgeStart(clickedNode);
                     setEdgePreview({ start: clickedNode, end: point });
+                } else {
+                    // Start dragging
+                    setIsDragging(true);
+                    setDraggedNode(clickedNode);
+                    // Select the node
+                    setSelectedNodeId(clickedNode.id);
                 }
-            } else if (clickedNode) {
-                setIsDragging(true);
-                setDraggedNode(clickedNode);
             } else {
+                // Start panning
                 setIsPanning(true);
                 setPanStart({ x: event.clientX, y: event.clientY });
+                // Deselect any selected node
+                setSelectedNodeId(null);
             }
         }
     };
 
-    // Update the handleMouseMove function
+    // Update the handleMouseMove function (unchanged)
     const handleMouseMove = (event) => {
         const point = getTransformedPoint(event);
 
@@ -88,17 +101,17 @@ const DAGNoteEditor = () => {
             setPanStart({ x: event.clientX, y: event.clientY });
         } else if (isDragging && draggedNode) {
             setNodes(prevNodes => prevNodes.map(n =>
-                n.id === draggedNode.id ? {...n, x: point.x, y: point.y } : n
+                n.id === draggedNode.id ? { ...n, x: point.x, y: point.y } : n
             ));
         } else if (edgeStart) {
             setEdgePreview({ start: edgeStart, end: point });
         }
     };
 
-    // Update the handleMouseUp function
+    // Update the handleMouseUp function (unchanged)
     const handleMouseUp = (event) => {
         const point = getTransformedPoint(event);
-        
+
         if (edgeStart) {
             const endNode = getNodeAtPoint(point.x, point.y);
 
@@ -126,14 +139,14 @@ const DAGNoteEditor = () => {
         if (clickedNode) {
             console.log("Edit node:", clickedNode.id);
             setEditingNode(clickedNode);
-          } else {
+        } else {
             createNode(point.x, point.y);
-          }
+        }
     };
 
+    // Key event handlers (unchanged)
     const handleKeyDown = (event) => {
         if (event.key === 'Shift') {
-            console.log("Shift pressed");
             setIsShiftPressed(true);
         } else if (event.key === 'Backspace' && selectedNodeId) {
             deleteSelectedNode();
@@ -144,7 +157,6 @@ const DAGNoteEditor = () => {
 
     const handleKeyUp = (event) => {
         if (event.key === 'Shift') {
-            console.log("Shift released");
             setIsShiftPressed(false);
         }
     };
@@ -158,7 +170,7 @@ const DAGNoteEditor = () => {
         };
     }, [selectedNodeId]); // Add selectedNodeId to the dependency array
 
-    // Update saveState function to accept parameters
+    // Functions for saving state, undo, createNode, deleteSelectedNode, createEdge (unchanged)
     const saveState = (updatedNodes, updatedEdges) => {
         setHistory(prevHistory => {
             const newHistory = [
@@ -170,7 +182,6 @@ const DAGNoteEditor = () => {
         setCurrentStateIndex(prevIndex => prevIndex + 1);
     };
 
-    // Modify undo function and useEffect remain the same
     const undo = () => {
         setCurrentStateIndex(prevIndex => {
             const newIndex = Math.max(prevIndex - 1, 0);
@@ -182,29 +193,28 @@ const DAGNoteEditor = () => {
         });
     };
 
-    // Modify createNode function
     const createNode = (x, y) => {
         const newNode = {
             id: `node-${Date.now()}`,
             x,
             y,
             text: '',
+            metadata: {} // Initialize metadata field
         };
         setNodes(prevNodes => {
             const updatedNodes = [...prevNodes, newNode];
             saveState(updatedNodes, edges); // Use current edges
             return updatedNodes;
         });
-        setEditingNode(newNode);
+        setSelectedNodeId(newNode.id);
     };
 
-    // Modify deleteSelectedNode function
     const deleteSelectedNode = () => {
         let updatedEdges = [];
         setNodes(prevNodes => {
             const updatedNodes = prevNodes.filter(node => node.id !== selectedNodeId);
             setEdges(prevEdges => {
-                updatedEdges = prevEdges.filter(edge => 
+                updatedEdges = prevEdges.filter(edge =>
                     edge.fromNodeId !== selectedNodeId && edge.toNodeId !== selectedNodeId
                 );
                 saveState(updatedNodes, updatedEdges);
@@ -215,7 +225,6 @@ const DAGNoteEditor = () => {
         setSelectedNodeId(null);
     };
 
-    // Modify createEdge function
     const createEdge = (fromNodeId, toNodeId) => {
         if (!edgeExists(fromNodeId, toNodeId)) {
             const newEdge = {
@@ -238,7 +247,20 @@ const DAGNoteEditor = () => {
         );
     };
 
-    // Add this new utility function to calculate intersection points
+    // Function to handle metadata update
+    const handleMetadataUpdate = (updatedMetadata) => {
+        setNodes((prevNodes) => {
+            const updatedNodes = prevNodes.map((node) =>
+                node.id === selectedNodeId
+                    ? { ...node, metadata: updatedMetadata }
+                    : node
+            );
+            saveState(updatedNodes, edges);
+            return updatedNodes;
+        });
+    };
+
+    // Function to calculate edge intersections (unchanged)
     const calculateIntersection = (fromNode, toNode) => {
         const nodeWidth = 100;  // Width of the node rectangle
         const nodeHeight = 60;  // Height of the node rectangle
@@ -267,7 +289,7 @@ const DAGNoteEditor = () => {
         };
     };
 
-    // Update the renderEdge function
+    // Update the renderEdge function (unchanged)
     const renderEdge = (edge) => {
         const fromNode = nodes.find(node => node.id === edge.fromNodeId);
         const toNode = nodes.find(node => node.id === edge.toNodeId);
@@ -295,7 +317,6 @@ const DAGNoteEditor = () => {
         <g
             key={node.id}
             transform={`translate(${node.x}, ${node.y})`}
-            onClick={() => handleNodeClick(node.id)}
             style={{ cursor: 'pointer' }}
         >
             <rect
@@ -347,61 +368,71 @@ const DAGNoteEditor = () => {
         </g>
     );
 
-    // Add these new functions after the existing function definitions
-
-    const handleNodeClick = (nodeId) => {
-        setSelectedNodeId(nodeId);
-    };
-
     // Save initial state on component mount
     useEffect(() => {
         saveState(nodes, edges);
     }, []);
 
     return (
-        <svg
-            ref={svgRef}
-            width="100%"
-            height="1000px"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onDoubleClick={handleDoubleClick}
-            style={{ cursor: isPanning ? 'grabbing' : (isShiftPressed ? 'crosshair' : 'default') }}
-            tabIndex="0"
-            onKeyDown={handleKeyDown}
-            onKeyUp={handleKeyUp}
-        >
-            <g ref={gRef} transform={`translate(${panOffset.x}, ${panOffset.y})`}>
-                <defs>
-                    <marker
-                        id="arrowhead"
-                        markerWidth="10"
-                        markerHeight="7"
-                        refX="9"
-                        refY="3.5"
-                        orient="auto"
-                    >
-                        <polygon points="0 0, 10 3.5, 0 7" fill="black" />
-                    </marker>
-                </defs>
-                {edges.map(renderEdge)}
-                {nodes.map(renderNode)}
-                {
-                    edgePreview && (
-                        <line
-                            x1={edgePreview.start.x}
-                            y1={edgePreview.start.y}
-                            x2={edgePreview.end.x}
-                            y2={edgePreview.end.y}
-                            stroke="black"
-                            strokeWidth="2"
-                            strokeDasharray="5,5"
-                        />
-                    )
-                }
-            </g>
-        </svg>
+        <div className="editor-container">
+            <div className="svg-container">
+                <svg
+                    ref={svgRef}
+                    width="100%"
+                    height="100%"
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onDoubleClick={handleDoubleClick}
+                    style={{
+                        cursor: isPanning
+                            ? 'grabbing'
+                            : isShiftPressed
+                                ? 'crosshair'
+                                : 'default',
+                    }}
+                    tabIndex="0"
+                >
+                    <g ref={gRef} transform={`translate(${panOffset.x}, ${panOffset.y})`}>
+                        <defs>
+                            <marker
+                                id="arrowhead"
+                                markerWidth="10"
+                                markerHeight="7"
+                                refX="9"
+                                refY="3.5"
+                                orient="auto"
+                            >
+                                <polygon points="0 0, 10 3.5, 0 7" fill="black" />
+                            </marker>
+                        </defs>
+                        {edges.map(renderEdge)}
+                        {nodes.map(renderNode)}
+                        {
+                            edgePreview && (
+                                <line
+                                    x1={edgePreview.start.x}
+                                    y1={edgePreview.start.y}
+                                    x2={edgePreview.end.x}
+                                    y2={edgePreview.end.y}
+                                    stroke="black"
+                                    strokeWidth="2"
+                                    strokeDasharray="5,5"
+                                />
+                            )
+                        }
+                    </g>
+                </svg>
+            </div>
+            {selectedNode && (
+                <div className="metadata-editor-container">
+                    <NodeMetadataEditor
+                        node={selectedNode}
+                        onUpdate={handleMetadataUpdate}
+                    />
+                </div>
+            )}
+        </div>
     );
 };
 
