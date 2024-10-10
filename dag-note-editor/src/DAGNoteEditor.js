@@ -14,6 +14,8 @@ const DAGNoteEditor = () => {
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
     const [selectedNodeId, setSelectedNodeId] = useState(null);
+    const [history, setHistory] = useState([]);
+    const [currentStateIndex, setCurrentStateIndex] = useState(-1);
 
     const svgRef = useRef(null);
     const gRef = useRef(null);
@@ -108,9 +110,14 @@ const DAGNoteEditor = () => {
             setEdgePreview(null);
         }
 
+        if (isDragging) {
+            setIsDragging(false);
+            setDraggedNode(null);
+            // Save the current state after dragging
+            saveState(nodes, edges);
+        }
+
         setIsPanning(false);
-        setIsDragging(false);
-        setDraggedNode(null);
     };
 
     const handleDoubleClick = (event) => {
@@ -130,6 +137,8 @@ const DAGNoteEditor = () => {
             setIsShiftPressed(true);
         } else if (event.key === 'Backspace' && selectedNodeId) {
             deleteSelectedNode();
+        } else if (event.ctrlKey && event.key === 'z') {
+            undo();
         }
     };
 
@@ -149,6 +158,31 @@ const DAGNoteEditor = () => {
         };
     }, [selectedNodeId]); // Add selectedNodeId to the dependency array
 
+    // Update saveState function to accept parameters
+    const saveState = (updatedNodes, updatedEdges) => {
+        setHistory(prevHistory => {
+            const newHistory = [
+                ...prevHistory.slice(0, currentStateIndex + 1),
+                { nodes: [...updatedNodes], edges: [...updatedEdges] }
+            ];
+            return newHistory;
+        });
+        setCurrentStateIndex(prevIndex => prevIndex + 1);
+    };
+
+    // Modify undo function and useEffect remain the same
+    const undo = () => {
+        setCurrentStateIndex(prevIndex => {
+            const newIndex = Math.max(prevIndex - 1, 0);
+            if (newIndex !== prevIndex && history[newIndex]) {
+                setNodes(history[newIndex].nodes);
+                setEdges(history[newIndex].edges);
+            }
+            return newIndex;
+        });
+    };
+
+    // Modify createNode function
     const createNode = (x, y) => {
         const newNode = {
             id: `node-${Date.now()}`,
@@ -156,11 +190,32 @@ const DAGNoteEditor = () => {
             y,
             text: '',
         };
-        console.log("Creating node:", newNode);
-        setNodes(prevNodes => [...prevNodes, newNode]);
+        setNodes(prevNodes => {
+            const updatedNodes = [...prevNodes, newNode];
+            saveState(updatedNodes, edges); // Use current edges
+            return updatedNodes;
+        });
         setEditingNode(newNode);
     };
 
+    // Modify deleteSelectedNode function
+    const deleteSelectedNode = () => {
+        let updatedEdges = [];
+        setNodes(prevNodes => {
+            const updatedNodes = prevNodes.filter(node => node.id !== selectedNodeId);
+            setEdges(prevEdges => {
+                updatedEdges = prevEdges.filter(edge => 
+                    edge.fromNodeId !== selectedNodeId && edge.toNodeId !== selectedNodeId
+                );
+                saveState(updatedNodes, updatedEdges);
+                return updatedEdges;
+            });
+            return updatedNodes;
+        });
+        setSelectedNodeId(null);
+    };
+
+    // Modify createEdge function
     const createEdge = (fromNodeId, toNodeId) => {
         if (!edgeExists(fromNodeId, toNodeId)) {
             const newEdge = {
@@ -168,9 +223,12 @@ const DAGNoteEditor = () => {
                 fromNodeId,
                 toNodeId,
             };
-            console.log("Creating edge:", newEdge);
-            setEdges(prevEdges => [...prevEdges, newEdge]);
-          }
+            setEdges(prevEdges => {
+                const updatedEdges = [...prevEdges, newEdge];
+                saveState(nodes, updatedEdges); // Use current nodes
+                return updatedEdges;
+            });
+        }
     };
 
     const edgeExists = (fromNodeId, toNodeId) => {
@@ -258,7 +316,10 @@ const DAGNoteEditor = () => {
                             type="text"
                             value={node.text}
                             onChange={(e) => handleNodeTextChange(e, node.id)}
-                            onBlur={() => setEditingNode(null)}
+                            onBlur={() => {
+                                setEditingNode(null);
+                                saveState(nodes, edges); // Save state after editing node text
+                            }}
                             autoFocus
                             style={{
                                 width: '100%',
@@ -292,13 +353,10 @@ const DAGNoteEditor = () => {
         setSelectedNodeId(nodeId);
     };
 
-    const deleteSelectedNode = () => {
-        setNodes(prevNodes => prevNodes.filter(node => node.id !== selectedNodeId));
-        setEdges(prevEdges => prevEdges.filter(edge => 
-            edge.fromNodeId !== selectedNodeId && edge.toNodeId !== selectedNodeId
-        ));
-        setSelectedNodeId(null);
-    };
+    // Save initial state on component mount
+    useEffect(() => {
+        saveState(nodes, edges);
+    }, []);
 
     return (
         <svg
