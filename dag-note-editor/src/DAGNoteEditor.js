@@ -17,6 +17,7 @@ const DAGNoteEditor = () => {
     const [selectedNodeId, setSelectedNodeId] = useState(null);
     const [history, setHistory] = useState([]);
     const [currentStateIndex, setCurrentStateIndex] = useState(-1);
+    const [focusedNodeId, setFocusedNodeId] = useState(null);
 
     const svgRef = useRef(null);
     const gRef = useRef(null);
@@ -63,6 +64,8 @@ const DAGNoteEditor = () => {
                 node.id === nodeId ? {...node, text: newText } : node
             )
         );
+        // Deselect the node when editing starts
+        setSelectedNodeId(null);
     };
 
     // Update the handleMouseDown function
@@ -147,11 +150,11 @@ const DAGNoteEditor = () => {
         }
     };
 
-    // Key event handlers (unchanged)
+    // Update the handleKeyDown function
     const handleKeyDown = (event) => {
         if (event.key === 'Shift') {
             setIsShiftPressed(true);
-        } else if (event.key === 'Backspace' && selectedNodeId && !isMetadataEditorFocused && !editingNode) {
+        } else if (event.key === 'Backspace' && (selectedNodeId || focusedNodeId) && !isMetadataEditorFocused) {
             deleteSelectedNode();
         } else if (event.ctrlKey && event.key === 'z') {
             undo();
@@ -212,13 +215,20 @@ const DAGNoteEditor = () => {
         setSelectedNodeId(newNode.id);
     };
 
+    // Update the deleteSelectedNode function
     const deleteSelectedNode = () => {
+        if (isMetadataEditorFocused || editingNode) {
+            return;
+        }
+        const nodeIdToDelete = selectedNodeId || focusedNodeId;
+        if (!nodeIdToDelete) return;
+
         let updatedEdges = [];
         setNodes(prevNodes => {
-            const updatedNodes = prevNodes.filter(node => node.id !== selectedNodeId);
+            const updatedNodes = prevNodes.filter(node => node.id !== nodeIdToDelete);
             setEdges(prevEdges => {
                 updatedEdges = prevEdges.filter(edge =>
-                    edge.fromNodeId !== selectedNodeId && edge.toNodeId !== selectedNodeId
+                    edge.fromNodeId !== nodeIdToDelete && edge.toNodeId !== nodeIdToDelete
                 );
                 saveState(updatedNodes, updatedEdges);
                 return updatedEdges;
@@ -226,6 +236,7 @@ const DAGNoteEditor = () => {
             return updatedNodes;
         });
         setSelectedNodeId(null);
+        setFocusedNodeId(null);
     };
 
     const createEdge = (fromNodeId, toNodeId) => {
@@ -250,11 +261,12 @@ const DAGNoteEditor = () => {
         );
     };
 
-    // Function to handle metadata update
+    // Update the handleMetadataUpdate function
     const handleMetadataUpdate = (updatedMetadata) => {
         setNodes((prevNodes) => {
+            const nodeIdToUpdate = selectedNodeId || focusedNodeId;
             const updatedNodes = prevNodes.map((node) =>
-                node.id === selectedNodeId
+                node.id === nodeIdToUpdate
                     ? { ...node, metadata: updatedMetadata }
                     : node
             );
@@ -264,12 +276,15 @@ const DAGNoteEditor = () => {
     };
 
     // Add functions to handle metadata editor focus
-    const handleMetadataEditorFocus = () => {
+    const handleMetadataEditorFocus = (nodeId) => {
         setIsMetadataEditorFocused(true);
+        setSelectedNodeId(null);
+        setFocusedNodeId(nodeId);
     };
 
     const handleMetadataEditorBlur = () => {
         setIsMetadataEditorFocused(false);
+        setFocusedNodeId(null);
     };
 
     // Function to calculate edge intersections (unchanged)
@@ -364,6 +379,7 @@ const DAGNoteEditor = () => {
                                 setEditingNode(null);
                                 saveState(nodes, edges); // Save state after editing node text
                             }}
+                            onFocus={() => setSelectedNodeId(null)} // Deselect node when focus enters the input
                             autoFocus
                             style={{
                                 width: '100%',
@@ -521,12 +537,12 @@ const DAGNoteEditor = () => {
                     </g>
                 </svg>
             </div>
-            {selectedNode && (
+            {(selectedNode || focusedNodeId) && (
                 <div className="metadata-editor-container">
                     <NodeMetadataEditor
-                        node={selectedNode}
+                        node={selectedNode || nodes.find(node => node.id === focusedNodeId)}
                         onUpdate={handleMetadataUpdate}
-                        onFocus={handleMetadataEditorFocus}
+                        onFocus={() => handleMetadataEditorFocus(selectedNode ? selectedNode.id : focusedNodeId)}
                         onBlur={handleMetadataEditorBlur}
                     />
                 </div>
