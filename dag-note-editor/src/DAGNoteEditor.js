@@ -15,6 +15,7 @@ const DAGNoteEditor = () => {
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
     const svgRef = useRef(null);
+    const gRef = useRef(null);
 
     const nodeRadius = 50; // Adjust this value based on your node size
 
@@ -57,7 +58,7 @@ const DAGNoteEditor = () => {
             setPanStart({ x: event.clientX, y: event.clientY });
         } else if (isDragging && draggedNode) {
             setNodes(prevNodes => prevNodes.map(n =>
-                n.id === draggedNode.id ? {...n, x: point.x - panOffset.x, y: point.y - panOffset.y } : n
+                n.id === draggedNode.id ? {...n, x: point.x, y: point.y } : n
             ));
         } else if (edgeStart) {
             setEdgePreview({ start: edgeStart, end: point });
@@ -142,10 +143,11 @@ const DAGNoteEditor = () => {
     // Update the getTransformedPoint function
     const getTransformedPoint = (event) => {
         const svg = svgRef.current;
+        const g = gRef.current;
         const point = svg.createSVGPoint();
         point.x = event.clientX;
         point.y = event.clientY;
-        const transformedPoint = point.matrixTransform(svg.getScreenCTM().inverse());
+        const transformedPoint = point.matrixTransform(g.getScreenCTM().inverse());
         return {
             x: transformedPoint.x,
             y: transformedPoint.y
@@ -175,10 +177,10 @@ const DAGNoteEditor = () => {
         return (
             <line
                 key={edge.id}
-                x1={fromNode.x + panOffset.x}
-                y1={fromNode.y + panOffset.y}
-                x2={toNode.x + panOffset.x}
-                y2={toNode.y + panOffset.y}
+                x1={fromNode.x}
+                y1={fromNode.y}
+                x2={toNode.x}
+                y2={toNode.y}
                 stroke="black"
                 strokeWidth="2"
                 markerEnd="url(#arrowhead)"
@@ -190,7 +192,7 @@ const DAGNoteEditor = () => {
     const renderNode = (node) => (
         <g
             key={node.id}
-            transform={`translate(${node.x + panOffset.x}, ${node.y + panOffset.y})`}
+            transform={`translate(${node.x}, ${node.y})`}
         >
             <rect
                 x="-50"
@@ -251,14 +253,14 @@ const DAGNoteEditor = () => {
         <svg
             ref={svgRef}
             width="100%"
-            height="600px"
+            height="1000px"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onDoubleClick={handleDoubleClick}
             style={{ cursor: isPanning ? 'grabbing' : (isShiftPressed ? 'crosshair' : 'default') }}
         >
-            <g transform={`translate(${panOffset.x}, ${panOffset.y})`}>
+            <g ref={gRef} transform={`translate(${panOffset.x}, ${panOffset.y})`}>
                 <defs>
                     <marker
                         id="arrowhead"
@@ -276,8 +278,8 @@ const DAGNoteEditor = () => {
                 {
                     edgePreview && (
                         <line
-                            x1={edgePreview.start.x + panOffset.x}
-                            y1={edgePreview.start.y + panOffset.y}
+                            x1={edgePreview.start.x}
+                            y1={edgePreview.start.y}
                             x2={edgePreview.end.x}
                             y2={edgePreview.end.y}
                             stroke="black"
