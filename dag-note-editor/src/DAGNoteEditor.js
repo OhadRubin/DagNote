@@ -29,6 +29,9 @@ const DAGNoteEditor = () => {
         [nodes, selectedNodeId]
     );
 
+    // Add a new state to track if the metadata editor is focused
+    const [isMetadataEditorFocused, setIsMetadataEditorFocused] = useState(false);
+
     // Utility functions (unchanged)
     const isPointInsideNode = (point, node) => {
         const dx = point.x - node.x;
@@ -148,7 +151,7 @@ const DAGNoteEditor = () => {
     const handleKeyDown = (event) => {
         if (event.key === 'Shift') {
             setIsShiftPressed(true);
-        } else if (event.key === 'Backspace' && selectedNodeId) {
+        } else if (event.key === 'Backspace' && selectedNodeId && !isMetadataEditorFocused) {
             deleteSelectedNode();
         } else if (event.ctrlKey && event.key === 'z') {
             undo();
@@ -168,7 +171,7 @@ const DAGNoteEditor = () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [selectedNodeId]); // Add selectedNodeId to the dependency array
+    }, [selectedNodeId, isMetadataEditorFocused]); // Add selectedNodeId and isMetadataEditorFocused to the dependency array
 
     // Functions for saving state, undo, createNode, deleteSelectedNode, createEdge (unchanged)
     const saveState = (updatedNodes, updatedEdges) => {
@@ -258,6 +261,15 @@ const DAGNoteEditor = () => {
             saveState(updatedNodes, edges);
             return updatedNodes;
         });
+    };
+
+    // Add functions to handle metadata editor focus
+    const handleMetadataEditorFocus = () => {
+        setIsMetadataEditorFocused(true);
+    };
+
+    const handleMetadataEditorBlur = () => {
+        setIsMetadataEditorFocused(false);
     };
 
     // Function to calculate edge intersections (unchanged)
@@ -429,6 +441,8 @@ const DAGNoteEditor = () => {
                     <NodeMetadataEditor
                         node={selectedNode}
                         onUpdate={handleMetadataUpdate}
+                        onFocus={handleMetadataEditorFocus}
+                        onBlur={handleMetadataEditorBlur}
                     />
                 </div>
             )}

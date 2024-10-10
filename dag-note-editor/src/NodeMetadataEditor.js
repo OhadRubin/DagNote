@@ -1,6 +1,6 @@
 import React from 'react';
 
-const NodeMetadataEditor = ({ node, onUpdate }) => {
+const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur }) => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         onUpdate({...node.metadata, [name]: value });
@@ -16,6 +16,8 @@ const NodeMetadataEditor = ({ node, onUpdate }) => {
         input name = "title"
         value = { node.metadata.title || '' }
         onChange = { handleChange }
+        onFocus = { onFocus }
+        onBlur = { onBlur }
         /> <
         /label> <
         br / >
@@ -26,6 +28,8 @@ const NodeMetadataEditor = ({ node, onUpdate }) => {
         textarea name = "description"
         value = { node.metadata.description || '' }
         onChange = { handleChange }
+        onFocus = { onFocus }
+        onBlur = { onBlur }
         /> <
         /label> { /* Add more fields as needed */ } <
         /div>
