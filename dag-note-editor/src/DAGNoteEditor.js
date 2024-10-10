@@ -433,11 +433,33 @@ const DAGNoteEditor = () => {
         }
     };
 
+    // {{ add_export_function }}
+    const exportToDot = () => {
+        let dot = 'digraph G {\n';
+        nodes.forEach(node => {
+            dot += `  "${node.id}" [label="${node.text}"];\n`;
+        });
+        edges.forEach(edge => {
+            dot += `  "${edge.fromNodeId}" -> "${edge.toNodeId}";\n`;
+        });
+        dot += '}';
+
+        const blob = new Blob([dot], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'graph.dot';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="editor-container">
             <div className="toolbar">
                 <button onClick={handleSave}>Save</button>
                 <button onClick={handleLoad}>Load</button>
+                <button onClick={exportToDot}>Export to DOT</button>
             </div>
             <div className="svg-container">
                 <svg
