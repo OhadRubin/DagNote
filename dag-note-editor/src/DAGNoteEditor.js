@@ -301,7 +301,7 @@ const DAGNoteEditor = () => {
         };
     };
 
-    // Update the renderEdge function (unchanged)
+    // Update the renderEdge function
     const renderEdge = (edge) => {
         const fromNode = nodes.find(node => node.id === edge.fromNodeId);
         const toNode = nodes.find(node => node.id === edge.toNodeId);
@@ -310,17 +310,28 @@ const DAGNoteEditor = () => {
         const startPoint = calculateIntersection(fromNode, toNode);
         const endPoint = calculateIntersection(toNode, fromNode);
 
+        // Calculate the midpoint of the edge
+        const midX = (startPoint.x + endPoint.x) / 2;
+        const midY = (startPoint.y + endPoint.y) / 2;
+
         return (
-            <line
-                key={edge.id}
-                x1={startPoint.x}
-                y1={startPoint.y}
-                x2={endPoint.x}
-                y2={endPoint.y}
-                stroke="black"
-                strokeWidth="2"
-                markerEnd="url(#arrowhead)"
-            />
+            <g key={edge.id}>
+                <line
+                    x1={startPoint.x}
+                    y1={startPoint.y}
+                    x2={endPoint.x}
+                    y2={endPoint.y}
+                    stroke="black"
+                    strokeWidth="2"
+                    markerEnd="url(#arrowhead)"
+                />
+                <circle
+                    cx={midX}
+                    cy={midY}
+                    r="3"
+                    fill="black"
+                />
+            </g>
         );
     };
 
