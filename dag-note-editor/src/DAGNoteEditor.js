@@ -1,7 +1,20 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import NodeMetadataEditor from './NodeMetadataEditor';
 import './styles.css'; // Import the CSS file
-import PortCircle from './PortCircle'; // Import the new PortCircle component
+
+const PortCircle = ({ x, y, port, nodeId, color }) => ( <
+    g transform = { `translate(${x}, ${y})` } >
+    <
+    circle r = "5"
+    fill = { color }
+    /> <
+    text x = "10"
+    y = "5"
+    fontSize = "12"
+    fill = "black" > { port.label } <
+    /text> < /
+    g >
+);
 
 const DAGNoteEditor = () => {
     const [nodes, setNodes] = useState([]);
