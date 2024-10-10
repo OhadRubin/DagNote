@@ -149,9 +149,14 @@ const DAGNoteEditor = () => {
 
     // Key event handlers (unchanged)
     const handleKeyDown = (event) => {
+        // Check if the event target is an input or textarea
+        const isInputActive = event.target.tagName.toLowerCase() === 'input' || 
+                              event.target.tagName.toLowerCase() === 'textarea';
+
         if (event.key === 'Shift') {
             setIsShiftPressed(true);
-        } else if (event.key === 'Backspace' && selectedNodeId && !isMetadataEditorFocused) {
+        } else if (event.key === 'Backspace' && selectedNodeId && !isInputActive) {
+            event.preventDefault(); // Prevent the default backspace behavior
             deleteSelectedNode();
         } else if (event.ctrlKey && event.key === 'z') {
             undo();
@@ -171,7 +176,7 @@ const DAGNoteEditor = () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [selectedNodeId, isMetadataEditorFocused]); // Add selectedNodeId and isMetadataEditorFocused to the dependency array
+    }, [selectedNodeId]); // Remove isMetadataEditorFocused from the dependency array
 
     // Functions for saving state, undo, createNode, deleteSelectedNode, createEdge (unchanged)
     const saveState = (updatedNodes, updatedEdges) => {
