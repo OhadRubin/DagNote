@@ -18,8 +18,8 @@ const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur }) => {
         onChange = { handleChange }
         onFocus = { onFocus }
         onBlur = { onBlur }
-        /> <
-        /label> <
+        /> < /
+        label > <
         br / >
         <
         label >
@@ -30,8 +30,8 @@ const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur }) => {
         onChange = { handleChange }
         onFocus = { onFocus }
         onBlur = { onBlur }
-        /> <
-        /label> { /* Add more fields as needed */ } <
+        /> < /
+        label > { /* Add more fields as needed */ } <
         /div>
     );
 };

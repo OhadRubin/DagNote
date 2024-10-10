@@ -149,14 +149,9 @@ const DAGNoteEditor = () => {
 
     // Key event handlers (unchanged)
     const handleKeyDown = (event) => {
-        // Check if the event target is an input or textarea
-        const isInputActive = event.target.tagName.toLowerCase() === 'input' || 
-                              event.target.tagName.toLowerCase() === 'textarea';
-
         if (event.key === 'Shift') {
             setIsShiftPressed(true);
-        } else if (event.key === 'Backspace' && selectedNodeId && !isInputActive) {
-            event.preventDefault(); // Prevent the default backspace behavior
+        } else if (event.key === 'Backspace' && selectedNodeId && !isMetadataEditorFocused) {
             deleteSelectedNode();
         } else if (event.ctrlKey && event.key === 'z') {
             undo();
@@ -176,7 +171,7 @@ const DAGNoteEditor = () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [selectedNodeId]); // Remove isMetadataEditorFocused from the dependency array
+    }, [selectedNodeId, isMetadataEditorFocused]); // Add selectedNodeId and isMetadataEditorFocused to the dependency array
 
     // Functions for saving state, undo, createNode, deleteSelectedNode, createEdge (unchanged)
     const saveState = (updatedNodes, updatedEdges) => {
@@ -390,8 +385,60 @@ const DAGNoteEditor = () => {
         saveState(nodes, edges);
     }, []);
 
+    // Serialize the current state to JSON
+    const serializeState = () => {
+        const state = {
+            nodes: nodes,
+            edges: edges,
+            panOffset: panOffset
+        };
+        return JSON.stringify(state);
+    };
+
+    // Deserialize JSON into application state
+    const deserializeState = (json) => {
+        try {
+            const state = JSON.parse(json);
+            setNodes(state.nodes);
+            setEdges(state.edges);
+            setPanOffset(state.panOffset);
+            // Reset other state variables
+            setSelectedNodeId(null);
+            setEditingNode(null);
+            setIsDragging(false);
+            setEdgeStart(null);
+            setEdgePreview(null);
+            // Save the loaded state to history
+            saveState(state.nodes, state.edges);
+        } catch (error) {
+            console.error("Error deserializing state:", error);
+        }
+    };
+
+    // Add these new functions to handle saving and loading
+
+    const handleSave = () => {
+        const serializedState = serializeState();
+        localStorage.setItem('dagNoteEditorState', serializedState);
+        alert('State saved successfully!');
+    };
+
+    const handleLoad = () => {
+        const savedState = localStorage.getItem('dagNoteEditorState');
+        if (savedState) {
+            deserializeState(savedState);
+            alert('State loaded successfully!');
+        } else {
+            alert('No saved state found.');
+        }
+    };
+
     return (
         <div className="editor-container">
+            <div className="toolbar">
+                <button onClick={handleSave}>Save</button>
+                <button onClick={handleLoad}>Load</button>
+            </div>
             <div className="svg-container">
                 <svg
                     ref={svgRef}
