@@ -1,0 +1,52 @@
+.editor-container {
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+    width: 100%;
+}
+
+.svg-container {
+    flex: 1;
+    overflow: hidden;
+}
+
+.metadata-editor-container {
+    width: 300px;
+    border-left: 1px solid #ccc;
+    padding: 10px;
+    overflow-y: auto;
+    background-color: #f8f8f8;
+}
+
+.metadata-editor {
+    font-family: Arial, sans-serif;
+}
+
+.metadata-editor h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.metadata-editor label {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.metadata-editor span {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.metadata-editor input,
+.metadata-editor textarea {
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.metadata-editor textarea {
+    height: 100px;
+    resize: vertical;
+}
