@@ -1,0 +1,1038 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { ArrowRightIcon } from 'lucide-react';
+
+// # DAGNote editing app main functionality 
+
+// **GUI**
+// - double click: create a new text box (go into editing mode)
+// - drag mouse: move around
+// - shift+drag mouse: add directed edges between two boxes.
+// - click on box: edit the text inside the box (click outside to stop editing)
+// - ctrl: go into "move things/ highlights the bounding boxes" mode
+// - ctrl+drag: move the node
+
+const DAGNoteEditor = () => {
+    // **State Variables**
+
+    // Array of all node objects in the graph.
+    const [nodes, setNodes] = useState([]); // (existed)
+
+    // Array of all edge objects connecting nodes.
+    const [edges, setEdges] = useState([]); // (existed)
+
+    // Boolean indicating if the Ctrl key is currently pressed.
+    const [isCtrlPressed, setIsCtrlPressed] = useState(false); // (existed)
+
+    // Boolean indicating if the Shift key is currently pressed.
+    const [isShiftPressed, setIsShiftPressed] = useState(false); // (existed)
+
+    // String representing the current user action.
+    // Possible values: 'none', 'panning', 'movingNode', 'creatingEdge'.
+    const [currentAction, setCurrentAction] = useState('none'); // (added)
+
+    // The node involved in the current action (e.g., the node being moved).
+    const [actionNode, setActionNode] = useState(null); // (added)
+
+    // The starting mouse coordinates when the current action began.
+    // Format: { x: number, y: number }.
+    const [actionStart, setActionStart] = useState(null); // (existed)
+
+    // The initial position when starting to pan the canvas.
+    // Format: { x: number, y: number }.
+    const [dragStart, setDragStart] = useState(null); // (existed)
+
+    // The cumulative offset of the canvas due to panning.
+    // Format: { x: number, y: number }.
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 }); // (existed)
+
+    // The node that is currently selected or highlighted.
+    const [selectedNode, setSelectedNode] = useState(null); // (added)
+
+    // The node whose text is currently being edited.
+    const [editingNode, setEditingNode] = useState(null); // (existed)
+
+    // Data for an edge that is being drawn but not yet finalized.
+    // Format: { fromNodeId: string, toPosition: { x: number, y: number } }.
+    const [edgePreview, setEdgePreview] = useState(null); // (existed)
+
+    // Reference to the canvas element for direct DOM interactions.
+    const svgRef = useRef(null); // (existed)
+
+    // **Event Handlers**
+    const handleNodeMouseDown = (node, event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The mouse event object. (existed)
+        // - `isCtrlPressed`: Determines if Ctrl key is pressed. (existed)
+        // - `isShiftPressed`: Determines if Shift key is pressed. (existed)
+        // - `currentAction`: May be set based on the action initiated. (added)
+        // - `dragStart`: Records starting point for panning. (existed)
+        // - `actionStart`: Records starting point for node movement. (existed)
+        // - `actionNode`: May be set if a node is involved. (added)
+
+        // **Related Methods:**
+
+        // - `getNodeAtPoint(x, y)`: Checks if a node is under the mouse cursor. (existed)
+        // - `getSvgPoint(event)`: Converts mouse event to SVG coordinates. (existed)
+        // - `setCurrentAction`: Function to update `currentAction`. (added)
+        // - `setActionNode`: Function to update `actionNode`. (added)
+        // - `setActionStart`: Function to update `actionStart`. (added)
+        // - `panOffset`: Affects the coordinates during mouse interactions. (added)
+        // - `selectedNode`: May be updated based on the action. (added)
+        // - `editingNode`: Determines if a node is currently being edited. (added)
+
+    };
+
+    const handleNodeMouseMove = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The mouse event object. (existed)
+        // - `actionNode`: The node currently being moved. (existed)
+        // - `currentAction`: Should be `'movingNode'` to proceed. (added)
+        // - `actionStart`: The initial position where movement began. (existed)
+
+        // **Related Methods:**
+
+        // - `moveNode(nodeId, deltaX, deltaY)`: Updates the node's position. (existed)
+        // - `getTransformedPoint(event)`: Gets the current mouse position in SVG coordinates. (existed)
+        // - `nodes`: The list of all nodes, required to update positions. (added)
+        // - `setNodes`: Function to update the list of nodes. (added)
+        // - `panOffset`: Affects transformed coordinates. (added)
+        // - `actionStart`: Used to calculate movement deltas. (added)
+
+    };
+
+    const handleNodeMouseUp = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The mouse event object. (existed)
+        // - `currentAction`: Resets to `'none'`. (added)
+        // - `actionNode`: May be cleared to `null`. (added)
+        // - `actionStart`: May be reset. (added)
+
+        // **Related Methods:**
+
+        // - `endNodeMove(nodeId)`: Finalizes node movement. (existed)
+        // - `deselectNode()`: Deselects any selected node if necessary. (existed)
+        // - `setCurrentAction`: Function to reset `currentAction`. (added)
+        // - `setActionNode`: Function to reset `actionNode`. (added)
+        // - `setActionStart`: Function to reset `actionStart`. (added)
+        // - `selectedNode`: May be updated or cleared. (added)
+        // - `editingNode`: May be initiated if a node was clicked. (added)
+
+    };
+
+    const handleContextMenu = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The context menu event object. (existed)
+        // - `selectedNode`: May be involved in context menu actions. (existed)
+        // - `setSelectedNode`: Function to update `selectedNode`. (added)
+        // - `setNodes`: Function to update nodes (e.g., when deleting). (added)
+        // - `setEdges`: Function to update edges. (added)
+
+        // **Related Methods:**
+
+        // - `event.preventDefault()`: Prevents the default context menu. (existed)
+        // - `removeNode(nodeId)` or `removeEdge(edgeId)`: Might be called from the custom context menu. (existed)
+        // - `showCustomContextMenu(x, y)`: Displays a custom context menu. (added)
+        // - `removeNode(nodeId)`: Removes a node and its associated edges. (added)
+        // - `removeEdge(edgeId)`: Removes an edge. (added)
+
+    };
+
+    const getSvgPoint = (event) => {
+        const svg = svgRef.current; // (existed)
+        const point = svg.createSVGPoint(); // (existed)
+        point.x = event.clientX; // (existed)
+        point.y = event.clientY; // (existed)
+        return point.matrixTransform(svg.getScreenCTM().inverse()); // (existed)
+    };
+
+    // **Method Definitions and Stubs**
+
+    /**
+     * Handles mouse down events on the canvas.
+     * Initiates actions based on where the user clicks and which modifier keys are pressed.
+     *
+     * @param {MouseEvent} event - The mouse down event object.
+     */
+    const handleMouseDown = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The mouse event object. (existed)
+        // - `isCtrlPressed`: Determines if Ctrl key is pressed. (existed)
+        // - `isShiftPressed`: Determines if Shift key is pressed. (existed)
+        // - `currentAction`: May be set based on the action initiated. (added)
+        // - `dragStart`: Records starting point for panning. (existed)
+        // - `actionStart`: Records starting point for node movement. (existed)
+        // - `actionNode`: May be set if a node is involved. (added)
+        // - `panOffset`: Affects coordinate calculations. (added)
+        // - `setDragStart`: Records the starting point for panning. (added)
+        // - `selectedNode`: May be deselected. (added)
+        // - `editingNode`: May be ended if clicking outside. (added)
+
+        // **Related Methods:**
+
+        // - `getNodeAtPoint(x, y)`: Checks if a node is under the mouse cursor. (existed)
+
+
+        // - `getSvgPoint(event)`: Converts mouse event to SVG coordinates. (existed)
+        // - `startPanning(x, y)`: Initiates canvas panning. (added)
+        // - `getTransformedPoint(event)`: May be used for accurate coordinates. (added)
+        // - `deselectNode()`: Deselects any selected node. (added)
+
+    };
+
+    /**
+     * Handles mouse move events on the canvas.
+     * Continues the action initiated by handleMouseDown.
+     *
+     * @param {MouseEvent} event - The mouse move event object.
+     */
+    const handleMouseMove = (event) => {
+        // **Related Variables:**
+
+        // - `event` (parameter): The mouse event object. (existed)
+        // - `currentAction`: Determines which action to perform. (added)
+        // - `panOffset`: May be updated if panning. (added)
+        // - `actionNode`: Node being moved, if any. (added)
+        // - `edgePreview`: May be updated when creating an edge. (added)
+
+        // **Related Methods:**
+
+        // - `updatePanOffset(deltaX, deltaY)`: Updates the canvas position. (added)
+        // - `updateNodePosition(nodeId, x, y)`: Moves a node. (existed)
+        // - `setEdgePreview(previewData)`: Updates the edge being previewed. (added)
+        // - `getSvgPoint(event)`: Gets mouse position in SVG coordinates. (existed)
+        // - `dragStart`: Used when panning to calculate deltas. (added)
+        // - `actionStart`: Used for calculating movement when moving nodes. (added)
+
+    };
+
+    /**
+     * Handles mouse up events on the canvas.
+     * Completes the current action and resets temporary states.
+     *
+     * @param {MouseEvent} event - The mouse up event object.
+     */
+    const handleMouseUp = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The mouse up event object. (existed)
+        // - `currentAction`: Resets to `'none'`. (added)
+        // - `edgePreview`: May be used to finalize edge creation. (added)
+
+        // **Related Methods:**
+
+        // - `createEdge(fromNodeId, toNodeId)`: Creates a new edge if applicable. (existed)
+        // - `deselectNode()`: Deselects any selected node. (existed)
+        // - `setEdgePreview(null)`: Clears the edge preview. (added)
+        // - `completeEdgeCreation(toNodeId)`: Finalizes creating an edge. (added)
+        // - `resetInteractionStates()`: Resets states related to user interactions. (added)
+
+    };
+
+    /**
+     * Handles double-click events on the canvas.
+     * Creates a new node at the double-clicked position.
+     *
+     * @param {MouseEvent} event - The double-click event object.
+     */
+    const handleDoubleClick = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The double-click event object. (existed)
+        // - `nodes`: The current list of nodes. (existed)
+        // - `setNodes`: Function to update the list of nodes. (existed)
+
+        // **Related Methods:**
+
+        // - `createNode(x, y)`: Creates a new node at the clicked position. (existed)
+        // - `getSvgPoint(event)`: Converts mouse event to SVG coordinates. (existed)
+        // - `panOffset`: Affects where the node is placed. (added)
+        // - `setEditingNode`: May be set to the new node for immediate editing. (added)
+
+    };
+
+    /**
+     * Handles key down events.
+     * Updates modifier key states and triggers visual changes.
+     *
+     * @param {KeyboardEvent} event - The key down event object.
+     */
+    const handleKeyDown = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The keyboard event object. (existed)
+        // - `isCtrlPressed`: Set to `true` if Ctrl is pressed. (existed)
+        // - `isShiftPressed`: Set to `true` if Shift is pressed. (existed)
+
+        // Update modifier key states
+        if (event.key === 'Control') {
+            setIsCtrlPressed(true); // (existed)
+        } else if (event.key === 'Shift') {
+            setIsShiftPressed(true); // (existed)
+        }
+
+        // **Additional Related Variables:** 
+        // - `currentAction`: May be affected by certain keys. (added)
+        // - `selectedNode`: Might be manipulated with keyboard shortcuts. (added)
+
+        // **Additional Related Methods:**
+        // - `handleDeleteKey(event)`: May be called if the Delete key is pressed. (added)
+        // - `handleUndoRedo(event)`: Handles undo/redo operations. (added)
+
+    };
+
+    /**
+     * Handles key up events.
+     * Updates modifier key states when keys are released.
+     *
+     * @param {KeyboardEvent} event - The key up event object.
+     */
+    const handleKeyUp = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The keyboard event object. (existed)
+        // - `isCtrlPressed`: Set to `false` if Ctrl is released. (existed)
+        // - `isShiftPressed`: Set to `false` if Shift is released. (existed)
+
+        // Update modifier key states
+        if (event.key === 'Control') {
+            setIsCtrlPressed(false); // (existed)
+        } else if (event.key === 'Shift') {
+            setIsShiftPressed(false); // (existed)
+        }
+
+        // **Additional Related Variables:** 
+        // - `currentAction`: May be affected by certain keys. (added)
+        // - `selectedNode`: Might be manipulated with keyboard shortcuts. (added)
+
+    };
+
+    /**
+     * Handles clicks on nodes.
+     * Initiates editing of a node's text or selects the node based on modifiers.
+     *
+     * @param {Object} node - The node object that was clicked.
+     * @param {MouseEvent} event - The mouse event object.
+     */
+    const handleNodeClick = (node, event) => {
+
+        // **Related Variables:**
+
+        // - `node` (parameter): The node that was clicked. (existed)
+        // - `event` (parameter): The mouse event object. (existed)
+        // - `selectedNode`: May be updated to the clicked node. (added)
+        // - `editingNode`: May be set for text editing. (existed)
+        // - `isCtrlPressed`: Influences selection behavior. (existed)
+        // - `isShiftPressed`: Influences selection behavior. (existed)
+
+        // **Related Methods:**
+
+        // - `selectNode(nodeId)`: Selects the clicked node. (existed)
+        // - `setEditingNode(nodeId)`: Initiates text editing. (existed)
+        // - `startNodeMove(nodeId, x, y)`: Begins node movement if applicable. (existed)
+
+    };
+
+    /**
+     * Handles changes in the text input while editing a node's text.
+     * Updates the node's text in real-time.
+     *
+     * @param {ChangeEvent} event - The change event from the text input.
+     */
+    const handleEditingTextChange = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The change event from the text input. (existed)
+        // - `editingNode`: The node currently being edited. (existed)
+        // - `nodes`: The current list of nodes. (existed)
+        // - `setNodes`: Function to update the list of nodes. (existed)
+
+        // **Related Methods:**
+
+        // - `updateNodeContent(nodeId, newText)`: Updates the node's text content. (existed)
+
+    };
+
+    /**
+     * Finalizes text editing of a node.
+     * Updates the node in the state and clears editing mode.
+     */
+    const handleEditingComplete = () => {
+
+        // **Related Variables:**
+
+        // - `editingNode`: Cleared to end editing mode. (added)
+        // - `setEditingNode(null)`: Resets the editing node state. (existed)
+
+        // **Additional Related Variables:** 
+        // - `nodes`: The current list of nodes, may need updating. (added)
+        // - `setNodes`: Function to update the list of nodes. (added)
+
+    };
+
+
+    /**
+     * Creates a new node at the specified position.
+     *
+     * @param {number} x - The x-coordinate for the new node.
+     * @param {number} y - The y-coordinate for the new node.
+     * @returns {Object} The newly created node object.
+     */
+    const createNode = (x, y) => {
+
+        // **Related Variables:**
+
+        // - `x`, `y` (parameters): Coordinates where the node is created. (existed)
+        // - `nodes`: The current list of nodes. (existed)
+        // - `setNodes`: Function to update the list of nodes. (existed)
+        // - `newNodeId`: A unique ID for the new node. (added)
+        // - `setSelectedNode`: May select the new node. (added)
+        // - `nodeDefaults`: Default properties for
+
+        new nodes.(added)
+
+        // **Related Methods:**
+
+        // - `generateUniqueId()`: Generates a unique ID for the new node. (added)
+        // - `updateNodeStyles(nodeId)`: Applies default styles. (added)
+
+    };
+
+    /**
+     * Updates the position of a node.
+     *
+     * @param {string} nodeId - The ID of the node to update.
+     * @param {number} x - The new x-coordinate for the node.
+     * @param {number} y - The new y-coordinate for the node.
+     */
+    const updateNodePosition = (nodeId, x, y) => {
+
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node to move. (existed)
+        // - `x`, `y` (parameters): New coordinates for the node. (existed)
+        // - `nodes`: The current list of nodes. (existed)
+        // - `setNodes`: Function to update the list of nodes. (existed)
+
+        // **Related Methods:**
+
+        // - `constrainNodePosition(x, y)`: Keeps node within bounds if necessary. (added)
+        // - `updateConnectedEdges(nodeId)`: Updates edges connected to this node. (added)
+
+    };
+
+    /**
+     * Creates a new edge between two nodes.
+     *
+     * @param {string} fromNodeId - The ID of the source node.
+     * @param {string} toNodeId - The ID of the target node.
+     * @returns {Object} The newly created edge object.
+     */
+    const createEdge = (fromNodeId, toNodeId) => {
+
+        // **Related Variables:**
+
+        // - `fromNodeId`, `toNodeId` (parameters): IDs of the nodes to connect. (existed)
+        // - `edges`: The current list of edges. (existed)
+        // - `setEdges`: Function to update the list of edges. (existed)
+        // - `newEdgeId`: A unique ID for the new edge. (added)
+        // - `edgeDefaults`: Default properties for new edges. (added)
+
+        // **Related Methods:**
+
+        // - `edgeExists(fromNodeId, toNodeId)`: Checks for existing edges. (existed)
+        // - `generateUniqueId()`: Generates unique IDs. (added)
+        // - `validateEdge(fromNodeId, toNodeId)`: Ensures the edge doesn't create a cycle. (added)
+
+    };
+
+    /**
+     * Removes an edge from the graph.
+     *
+     * @param {string} edgeId - The ID of the edge to remove.
+     */
+    const removeEdge = (edgeId) => {
+
+        // **Related Variables:**
+
+        // - `edgeId` (parameter): The ID of the edge to remove. (existed)
+        // - `edges`: The current list of edges. (existed)
+        // - `setEdges`: Function to update the list of edges. (existed)
+        // - `setSelectedEdge`: May need to reset if the selected edge is removed. (added)
+
+        // **Related Methods:**
+
+        // - `deselectEdge()`: Deselects the edge if it's selected. (added)
+
+    };
+
+    /**
+     * Calculates the position for rendering an edge between two nodes.
+     *
+     * @param {Object} fromNode - The source node object.
+     * @param {Object} toNode - The target node object.
+     * @returns {Object} An object containing start and end coordinates for the edge.
+     */
+    const calculateEdgePosition = (fromNode, toNode) => {
+
+        // **Related Variables:**
+
+        // - `fromNode`, `toNode` (parameters): Nodes between which the edge exists. (existed)
+
+        // - `fromNode.position`: Starting point. (added)
+        // - `toNode.position`: Ending point. (added)
+        // - `fromNode.size`: May affect where the edge connects. (added)
+
+    };
+
+    /**
+     * Checks if a point is inside a node's bounding box.
+     *
+     * @param {number} x - The x-coordinate of the point to check.
+     * @param {number} y - The y-coordinate of the point to check.
+     * @param {Object} node - The node object to check against.
+     * @returns {boolean} True if the point is inside the node, false otherwise.
+     */
+    const isPointInNode = (x, y, node) => {
+
+        // **Related Variables:**
+
+        // - `x`, `y` (parameters): Coordinates to check. (existed)
+        // - `node` (parameter): The node to check against. (existed)
+
+        // - `node.position`: Node's position. (added)
+        // - `node.size`: Node's dimensions. (added)
+        // - `node.shape`: May affect hit detection. (added)
+
+    };
+
+    /**
+     * Finds the node at a given point, if any.
+     *
+     * @param {number} x - The x-coordinate to check.
+     * @param {number} y - The y-coordinate to check.
+     * @returns {Object|null} The node object if found, or null if no node is at the given point.
+     */
+    const getNodeAtPoint = (x, y) => {
+        // Method stub
+        // **Related Variables:**
+
+        // - `nodes`: The list of nodes. (added)
+
+        // **Related Methods:**
+
+        // - `isPointInNode(x, y, node)`: Used to check each node. (added)
+
+    };
+
+    /**
+     * Updates the canvas pan offset.
+     *
+     * @param {number} deltaX - The change in x-coordinate.
+     * @param {number} deltaY - The change in y-coordinate.
+     */
+    const updatePanOffset = (deltaX, deltaY) => {
+
+        // **Related Variables:**
+
+        // - `deltaX`, `deltaY` (parameters): Amount to adjust the pan offset. (existed)
+        // - `panOffset`: The current pan offset. (existed)
+        // - `setPanOffset`: Function to update the pan offset. (existed)
+
+        // **Additional Related Variables:**
+        // - `constrainPanOffset(x, y)`: Keeps the pan within limits. (added)
+
+    };
+
+    /**
+     * Renders a single node on the canvas.
+     *
+     * @param {Object} node - The node object to render.
+     * @returns {JSX.Element} The JSX for rendering the node.
+     */
+    const renderNode = (node) => {
+
+        // **Related Variables:**
+
+        // - `node` (parameter): The node to render. (existed)
+        // - `editingNode`: Determines if the node is being edited. (existed)
+        // - `selectedNode`: Determines if the node is selected. (existed)
+        // - `isCtrlPressed`: Affects styling or interaction. (existed)
+
+        // **Related Methods:**
+
+        // - `handleNodeClick(node, event)`: Handles click events on the node. (existed)
+        // - `handleNodeMouseDown(node, event)`: Handles mouse down events. (existed)
+        // - `handleNodeMouseMove(event)`: Handles mouse move events. (existed)
+        // - `handleNodeMouseUp(event)`: Handles mouse up events. (existed)
+        // - `handleEditingTextChange(event)`: Handles text changes. (existed)
+        // - `handleEditingComplete()`: Finalizes text editing. (existed)
+        // - `handleMouseEnterNode(nodeId, event)`: Handles hover effects. (added)
+        // - `handleMouseLeaveNode(nodeId, event)`: Handles hover effects. (added)
+
+    };
+
+    /**
+     * Renders a single edge on the canvas.
+     *
+     * @param {Object} edge - The edge object to render.
+     * @returns {JSX.Element} The JSX for rendering the edge.
+     */
+    const renderEdge = (edge) => {
+
+        // **Related Variables:**
+
+        // - `edge` (parameter): The edge to render. (existed)
+        // - `nodes`: Used to get the connected nodes. (existed)
+
+        // **Related Methods:**
+
+        // - `calculateEdgePosition(fromNode, toNode)`: Calculates positions for rendering. (existed)
+
+    };
+
+    /**
+     * Renders the canvas, including nodes, edges, and dynamic elements like
+     * bounding boxes or edge previews based on the current state.
+     */
+    const renderCanvas = () => {
+        // **Related Variables:**
+
+        // - `nodes`, `edges`: Current lists of nodes and edges. (existed)
+        // - `edgePreview`: Data for the edge being previewed. (existed)
+        // - `currentAction`: Determines what is being rendered. (existed)
+        // - `panOffset`: Affects the overall canvas position. (existed)
+        // - `isCtrlPressed`, `isShiftPressed`: May affect rendering. (existed)
+
+        // **Related Methods:**
+
+        // - `renderNode(node)`: Renders each node. (existed)
+        // - `renderEdge(edge)`: Renders each edge. (existed)
+
+    };
+
+    // **Additional Method Stubs**
+
+    /**
+     * Selects a node and updates the state accordingly.
+     *
+     * @param {string} nodeId - The ID of the node to select.
+     */
+    const selectNode = (nodeId
+
+    ) => {
+
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node to select. (existed)
+        // - `selectedNode`: Updated to the selected node. (existed)
+        // - `setSelectedNode`: Function to update the selected node. (existed)
+
+        // **Additional Related Variables:**
+        // - `setEditingNode(null)`: May end editing of previous node. (added)
+
+    };
+
+    /**
+     * Deselects the currently selected node.
+     */
+    const deselectNode = () => {
+
+        // **Related Variables:**
+
+        // - `selectedNode`: Cleared to deselect any node. (existed)
+        // - `setSelectedNode(null)`: Resets the selected node state. (existed)
+
+        // **Additional Related Variables:**
+        // - `setEditingNode(null)`: Ends any text editing. (added)
+
+    };
+
+    /**
+     * Handles click events on the canvas background.
+     * Used to deselect nodes or complete other background interactions.
+     *
+     * @param {MouseEvent} event - The mouse click event object.
+     */
+    const handleCanvasClick = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The mouse event object. (existed)
+        // - `selectedNode`: May be deselected. (existed)
+
+        // **Related Methods:**
+
+        // - `deselectNode()`: Called to deselect any selected node. (existed)
+
+    };
+
+    /**
+     * Checks if an edge already exists between two nodes.
+     *
+     * @param {string} fromNodeId - The ID of the source node.
+     * @param {string} toNodeId - The ID of the target node.
+     * @returns {boolean} True if the edge exists, false otherwise.
+     */
+    const edgeExists = (fromNodeId, toNodeId) => {
+
+        // **Related Variables:**
+
+        // - `fromNodeId`, `toNodeId` (parameters): Node IDs to check. (existed)
+        // - `edges`: The current list of edges. (existed)
+
+        // **Additional Related Variables:**
+        // - `findEdge(fromNodeId, toNodeId)`: Returns the edge if it exists. (added)
+
+    };
+
+    /**
+     * Updates the size of a node based on its content.
+     *
+     * @param {string} nodeId - The ID of the node to update.
+     */
+    const updateNodeSize = (nodeId) => {
+
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node to resize. (existed)
+        // - `nodes`: The current list of nodes. (existed)
+        // - `setNodes`: Function to update the list of nodes. (existed)
+
+        // **Related Methods:**
+
+        // - `measureTextSize(text)`: Calculates size based on text. (added)
+
+    };
+
+    /**
+     * Handles the deletion of nodes or edges when the delete key is pressed.
+     *
+     * @param {KeyboardEvent} event - The key down event object.
+     */
+    const handleDeleteKey = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The keyboard event object. (existed)
+        // - `selectedNode`: Node to delete if selected. (added)
+        // - `nodes`, `setNodes`: May be updated to remove a node. (added)
+        // - `edges`, `setEdges`: May be updated to remove connected edges. (added)
+        // - `selectedEdge`: May be deleted if selected. (added)
+        // - `setSelectedEdge(null)`: Resets selected edge. (added)
+
+        // **Related Methods:**
+
+        // - `removeNode(nodeId)`: Removes a node. (added)
+        // - `removeEdge(edgeId)`: Removes an edge. (added)
+
+    };
+
+    /**
+     * Updates the content (text) of a node.
+     *
+     * @param {string} nodeId - The ID of the node to update.
+     * @param {string} newText - The new text content for the node.
+     */
+    const updateNodeContent = (nodeId, newText) => {
+
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node to update. (existed)
+        // - `newText` (parameter): The new text content. (existed)
+        // - `nodes`: The current list of nodes. (existed)
+        // - `setNodes`: Function to update the list of nodes. (existed)
+
+        // **Additional Related Variables:**
+        // - `updateNodeSize(nodeId)`: Adjusts the node size based on new content. (added)
+
+    };
+
+
+    /**
+     * Handles mouse enter events on a node.
+     * Can be used to trigger hover effects.
+     *
+     * @param {string} nodeId - The ID of the node.
+     * @param {MouseEvent} event - The mouse event object.
+     */
+    const handleMouseEnterNode = (nodeId, event) => {
+
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node. (existed)
+        // - `event` (parameter): The mouse event object. (existed)
+
+        // **Related Methods:**
+
+        // - `None` (existed)
+
+    };
+
+    /**
+     * Handles mouse leave events on a node.
+     * Can be used to remove hover effects.
+     *
+     * @param {string} nodeId - The ID of the node.
+     * @param {MouseEvent} event - The mouse event object.
+     */
+    const handleMouseLeaveNode = (nodeId, event) => {
+
+
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node. (existed)
+        // - `event` (parameter): The mouse event object. (existed)
+
+        // **Related Methods:**
+
+        // - `None` (existed)
+
+    };
+
+
+    /**
+     * Handles blur events, such as when a text input loses focus.
+     *
+     * @param {FocusEvent} event - The blur event object.
+     */
+    const handleBlur = (event) => {
+        // **Related Variables:**
+
+        // - `event` (parameter): The blur event object. (existed)
+        // - `editingNode`: May be reset to end editing. (added)
+
+        // **Related Methods:**
+
+        // - `handleEditingComplete()`: Finalizes text editing. (existed)
+
+    };
+
+    /**
+     * Handles focus events, such as when a text input gains focus.
+     *
+     * @param {FocusEvent} event - The focus event object.
+     */
+    const handleFocus = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The focus event object. (existed)
+
+        // **Related Methods:** (existed)
+
+    };
+
+
+    /**
+     * Transforms screen coordinates to SVG coordinates considering pan.
+     *
+     * @param {MouseEvent} event - The mouse event object.
+     * @returns {Object} An object containing the x and y SVG coordinates.
+     */
+    const getTransformedPoint = (event) => {
+
+        // **Related Variables:**
+
+        // - `event` (parameter): The mouse event object. (existed)
+        // - `panOffset`: Affects the transformation. (added)
+        // - `svgRef`: Reference to the SVG element. (existed)
+
+    };
+
+    /**
+     * Starts moving a node when dragging begins.
+     *
+     * @param {string} nodeId - The ID of the node to move.
+     * @param {number} startX - The starting x-coordinate.
+     * @param {number} startY - The starting y-coordinate.
+     */
+    const startNodeMove = (nodeId, startX, startY) => {
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node to move. (existed)
+        // - `startX`, `startY` (parameters): Initial mouse positions. (existed)
+        // - `actionNode`: Set to the node being moved. (added)
+        // - `actionStart`: Set to the initial position. (added)
+        // - `currentAction`: Set to `'movingNode'`. (added)
+
+        // **Related Methods:**
+
+        // - `updateNodeStyles(nodeId)`: Updates styles (added)
+
+    };
+
+    /**
+     * Moves a node based on mouse movement.
+     *
+     * @param {string} nodeId - The ID of the node to move.
+     * @param {number} deltaX - The change in x-coordinate.
+     * @param {number} deltaY - The change in y-coordinate.
+     */
+    const moveNode = (nodeId, deltaX, deltaY) => {
+
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node to move. (existed)
+        // - `deltaX`, `deltaY` (parameters): Amount to move the node. (existed)
+        // - `nodes`: The current list of nodes. (existed)
+        // - `setNodes`: Function to update the list of nodes. (existed)
+
+        // **Related Methods:**
+
+        // - `updateNodeStyles(nodeId)`: Updates styles (added)
+
+    };
+
+    /**
+    * Ends the node movement when dragging stops.
+    *
+    * @param {string} nodeId -
+
+ The ID of the node that was moved.
+    */
+    const endNodeMove = (nodeId) => {
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node that was moved. (existed)
+        // - `actionNode`: Cleared to `null`. (added)
+        // - `currentAction`: Reset to `'none'`. (added)
+
+        // **Related Methods:**
+
+        // - `updateNodeStyles(nodeId)`: Updates styles (added)
+
+    };
+
+    /**
+     * Normalizes a point based on the current pan settings.
+     *
+     * @param {Object} point - The point to normalize with x and y properties.
+     * @returns {Object} An object with normalized x and y properties.
+     */
+    const normalizePoint = (point) => {
+
+        // **Related Variables:**
+
+        // - `point` (parameter): The point to normalize. (existed)
+        // - `panOffset`: Used to adjust the point. (added)
+
+    };
+
+    /**
+     * Handles the resizing of a node.
+     *
+     * @param {string} nodeId - The ID of the node to resize.
+     * @param {number} newWidth - The new width of the node.
+     * @param {number} newHeight - The new height of the node.
+     */
+    const resizeNode = (nodeId, newWidth, newHeight) => {
+        // **Related Variables:**
+
+        // - `nodeId` (parameter): The ID of the node to resize. (existed)
+        // - `newWidth`, `newHeight` (parameters): New dimensions. (existed)
+        // - `nodes`: The current list of nodes. (existed)
+        // - `setNodes`: Function to update the list of nodes. (existed)
+
+        // **Additional Related Variables:**
+        // - `updateConnectedEdges(nodeId)`: May need to update edges if node size affects them. (added)
+
+    };
+
+    /**
+     * Updates the visual styles of nodes based on their state (selected, hovered, etc.).
+     *
+     * @param {string} nodeId - The ID of the node to update.
+     */
+    const updateNodeStyles = (nodeId) => {
+        // Method stub
+        // **Related Variables:**
+
+        // - `nodes`: List of nodes to apply styles. (added)
+        // - `selectedNode`: May affect styling. (added)
+        // - `hoveredNode`: May affect styling. (added)
+        // - `editingNode`: May affect styling. (added)
+
+        // **Related Methods:**
+
+        // - `getNodeClassNames(node)`: Determines the classes based on state. (added)
+
+    };
+
+    // **useEffect Hooks**
+
+    /**
+     * Adds event listeners for delete key when the component mounts.
+     * Cleans up event listeners when the component unmounts.
+     */
+    useEffect(() => {
+        // Attach event listener for delete key (existed)
+        window.addEventListener('keydown', handleDeleteKey); // (existed)
+
+        // Cleanup on unmount (existed)
+        return () => {
+            window.removeEventListener('keydown', handleDeleteKey); // (existed)
+        };
+    }, []);
+
+    /**
+     * Adds event listeners for key events when the component mounts.
+     * Cleans up event listeners when the component unmounts.
+     */
+    useEffect(() => {
+        // Attach event listeners for key presses (existed)
+        window.addEventListener('keydown', handleKeyDown); // (existed)
+        window.addEventListener('keyup', handleKeyUp); // (existed)
+
+        // Cleanup on unmount (existed)
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown); // (existed)
+            window.removeEventListener('keyup', handleKeyUp); // (existed)
+        };
+    }, []);
+
+    // **Component Render**
+
+    return ( <
+        svg ref = { svgRef } // (existed)
+        onMouseDown = { handleMouseDown } // (existed)
+        onMouseMove = { handleMouseMove } // (existed)
+        onMouseUp = { handleMouseUp } // (existed)
+        onDoubleClick = { handleDoubleClick } // (existed)
+        onClick = { handleCanvasClick } // (existed)
+        onContextMenu = { handleContextMenu } // (existed)
+        // Add other necessary SVG attributes and event handlers (existed)
+        >
+        { /* Render Edges */ } { edges.map(edge => renderEdge(edge)) } // (existed)
+
+        { /* Render Edge Preview if any */ } {
+            edgePreview && ( <
+                    ArrowRightIcon
+                    // Position and styling based on edgePreview
+                    /
+                    >
+                ) // (existed)
+        }
+
+        { /* Render Nodes */ } { nodes.map(node => renderNode(node)) } // (existed)
+
+        { /* Additional dynamic elements like bounding boxes can be rendered here */ } <
+        /svg>
+    );
+};
+
+export default DAGNoteEditor; // (existed)
