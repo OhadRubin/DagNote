@@ -13,6 +13,7 @@ const DAGNoteEditor = () => {
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [selectedNodeId, setSelectedNodeId] = useState(null);
 
     const svgRef = useRef(null);
     const gRef = useRef(null);
@@ -127,6 +128,8 @@ const DAGNoteEditor = () => {
         if (event.key === 'Shift') {
             console.log("Shift pressed");
             setIsShiftPressed(true);
+        } else if (event.key === 'Backspace' && selectedNodeId) {
+            deleteSelectedNode();
         }
     };
 
@@ -136,6 +139,15 @@ const DAGNoteEditor = () => {
             setIsShiftPressed(false);
         }
     };
+
+    useEffect(() => {
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [selectedNodeId]); // Add selectedNodeId to the dependency array
 
     const createNode = (x, y) => {
         const newNode = {
@@ -158,7 +170,7 @@ const DAGNoteEditor = () => {
             };
             console.log("Creating edge:", newEdge);
             setEdges(prevEdges => [...prevEdges, newEdge]);
-        }
+          }
     };
 
     const edgeExists = (fromNodeId, toNodeId) => {
@@ -225,13 +237,15 @@ const DAGNoteEditor = () => {
         <g
             key={node.id}
             transform={`translate(${node.x}, ${node.y})`}
+            onClick={() => handleNodeClick(node.id)}
+            style={{ cursor: 'pointer' }}
         >
             <rect
                 x="-50"
                 y="-30"
                 width="100"
                 height="60"
-                fill="white"
+                fill={selectedNodeId === node.id ? "lightblue" : "white"}
                 stroke="black"
                 strokeWidth="2"
                 rx="5"
@@ -272,14 +286,19 @@ const DAGNoteEditor = () => {
         </g>
     );
 
-    useEffect(() => {
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, []);
+    // Add these new functions after the existing function definitions
+
+    const handleNodeClick = (nodeId) => {
+        setSelectedNodeId(nodeId);
+    };
+
+    const deleteSelectedNode = () => {
+        setNodes(prevNodes => prevNodes.filter(node => node.id !== selectedNodeId));
+        setEdges(prevEdges => prevEdges.filter(edge => 
+            edge.fromNodeId !== selectedNodeId && edge.toNodeId !== selectedNodeId
+        ));
+        setSelectedNodeId(null);
+    };
 
     return (
         <svg
@@ -291,6 +310,9 @@ const DAGNoteEditor = () => {
             onMouseUp={handleMouseUp}
             onDoubleClick={handleDoubleClick}
             style={{ cursor: isPanning ? 'grabbing' : (isShiftPressed ? 'crosshair' : 'default') }}
+            tabIndex="0"
+            onKeyDown={handleKeyDown}
+            onKeyUp={handleKeyUp}
         >
             <g ref={gRef} transform={`translate(${panOffset.x}, ${panOffset.y})`}>
                 <defs>
