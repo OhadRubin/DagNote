@@ -389,12 +389,15 @@ const DAGNoteEditor = () => {
 
     // Function to handle metadata update
     const handleMetadataUpdate = (updatedMetadata) => {
+        console.log('Updating metadata:', updatedMetadata);
+        const nodeId = selectedNodeId || focusedNodeId; // Use focusedNodeId if selectedNodeId is null
         setNodes((prevNodes) => {
             const updatedNodes = prevNodes.map((node) =>
-                node.id === selectedNodeId ?
-                {...node, metadata: updatedMetadata } :
+                node.id === nodeId ?
+                { ...node, metadata: updatedMetadata } :
                 node
             );
+            console.log('Updated nodes:', updatedNodes);
             saveState(updatedNodes, edges);
             return updatedNodes;
         });
@@ -624,6 +627,9 @@ const DAGNoteEditor = () => {
             return updatedNodes;
         });
     };
+
+    console.log('Selected node:', selectedNode);
+    console.log('Focused node ID:', focusedNodeId);
 
     return (
         <div className="editor-container">
