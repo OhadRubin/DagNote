@@ -531,43 +531,81 @@ const DAGNoteEditor = () => {
     };
 
     // Update the renderNode function
-    const renderNode = (node) => (
-        <g key={node.id} transform={`translate(${node.x}, ${node.y})`} style={{ cursor: 'pointer' }}>
-            <rect x="-50" y="-30" width="100" height="60" fill={selectedNodeId === node.id ? "lightblue" : "white"} stroke="black" strokeWidth="2" rx="5" ry="5" />
-            {editingNode && editingNode.id === node.id ? (
-                <foreignObject x="-45" y="-25" width="90" height="50">
-                    <input
-                        type="text"
-                        value={node.label}
-                        onChange={(e) => handleLabelChange(node.id, e.target.value)}
-                        onBlur={() => {
-                            setEditingNode(null);
-                            saveState(nodes, edges); // Save state after editing node label
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.target.blur(); // This will trigger the onBlur event
-                            }
-                        }}
-                        onFocus={() => setSelectedNodeId(null)} // Deselect node when focus enters the input
-                        autoFocus
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            border: 'none',
-                            background: 'transparent',
-                            textAlign: 'center',
-                            fontSize: '14px',
-                        }}
-                    />
-                </foreignObject>
-            ) : (
-                <text x="0" y="0" textAnchor="middle" dominantBaseline="middle" fontSize="14" pointerEvents="none">
-                    {node.label}
-                </text>
-            )}
-        </g>
-    );
+    const renderNode = (node) => {
+        // Calculate text dimensions
+        const fontSize = 14; // Same as in your text element
+        const padding = 10; // Padding around the text
+        const approximateCharWidth = fontSize * 0.6; // Approximate width per character
+        const textWidth = node.label.length * approximateCharWidth;
+
+        // Set rectangle dimensions based on text width
+        const rectWidth = textWidth + padding * 2;
+        const rectHeight = fontSize + padding * 2;
+
+        return (
+            <g
+                key={node.id}
+                transform={`translate(${node.x}, ${node.y})`}
+                style={{ cursor: 'pointer' }}
+            >
+                <rect
+                    x={-rectWidth / 2}
+                    y={-rectHeight / 2}
+                    width={rectWidth}
+                    height={rectHeight}
+                    fill={selectedNodeId === node.id ? "lightblue" : "white"}
+                    stroke="black"
+                    strokeWidth="2"
+                    rx="5"
+                    ry="5"
+                />
+                {editingNode && editingNode.id === node.id ? (
+                    <foreignObject
+                        x={-rectWidth / 2 + padding}
+                        y={-rectHeight / 2 + padding}
+                        width={rectWidth - padding * 2}
+                        height={rectHeight - padding * 2}
+                    >
+                        <input
+                            type="text"
+                            value={node.label}
+                            onChange={(e) => handleLabelChange(node.id, e.target.value)}
+                            onBlur={() => {
+                                setEditingNode(null);
+                                saveState(nodes, edges); // Save state after editing node label
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.target.blur(); // This will trigger the onBlur event
+                                }
+                            }}
+                            onFocus={() => setSelectedNodeId(null)} // Deselect node when focus enters the input
+                            autoFocus
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                border: 'none',
+                                background: 'transparent',
+                                textAlign: 'center',
+                                fontSize: `${fontSize}px`,
+                            }}
+                        />
+                    </foreignObject>
+                ) : (
+                    <text
+                        x="0"
+                        y="0"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={fontSize}
+                        pointerEvents="none"
+                    >
+                        {node.label}
+                    </text>
+                )}
+            </g>
+        );
+    };
 
     // Save initial state on component mount
     useEffect(() => {
