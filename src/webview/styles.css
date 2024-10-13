@@ -1,0 +1,49 @@
+.editor-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.toolbar {
+    padding: 10px;
+    background-color: #f0f0f0;
+}
+
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.svg-container {
+    flex: 1;
+    overflow: hidden;
+}
+
+.metadata-editor-container {
+    width: 300px;
+    background-color: #f9f9f9;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.resizer {
+    width: 5px;
+    background-color: #ddd;
+    cursor: col-resize;
+}
+
+.metadata-editor {
+    padding: 10px;
+}
+
+.metadata-editor label {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.metadata-editor input,
+.metadata-editor textarea {
+    width: 100%;
+    padding: 5px;
+}
