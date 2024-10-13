@@ -198,6 +198,11 @@ const DAGNoteEditor = () => {
 
     // Update the handleMouseDown function
     const handleMouseDown = (event) => {
+        // Check if the click is inside the metadata editor
+        if (event.target.closest('.metadata-editor-container')) {
+            return; // Exit the function early if the click is in the metadata editor
+        }
+
         const point = getTransformedPoint(event);
         const clickedNode = getNodeAtPoint(point.x, point.y);
 
@@ -218,7 +223,7 @@ const DAGNoteEditor = () => {
                 // Start panning
                 setIsPanning(true);
                 setPanStart({ x: event.clientX, y: event.clientY });
-                // Deselect any selected node
+                // Only deselect if we're not clicking in the metadata editor
                 setSelectedNodeId(null);
             }
         }
@@ -408,8 +413,9 @@ const DAGNoteEditor = () => {
     // Add functions to handle metadata editor focus
     const handleMetadataEditorFocus = (nodeId) => {
         setIsMetadataEditorFocused(true);
-        setSelectedNodeId(null);
         setFocusedNodeId(nodeId);
+        // Don't clear the selectedNodeId here
+        // setSelectedNodeId(null);
     };
 
     const handleMetadataEditorBlur = () => {
@@ -638,7 +644,7 @@ const DAGNoteEditor = () => {
 
         const handleMouseMove = (e) => {
             const deltaX = startX - e.clientX;
-            const newWidth = Math.max(200, Math.min(2000, startWidth + deltaX)); // Increased max width to 2000px
+            const newWidth = Math.max(200, Math.min(1000, startWidth + deltaX));
             setMetadataEditorWidth(newWidth);
         };
 
@@ -710,12 +716,7 @@ const DAGNoteEditor = () => {
                         />
                         <div
                             className="metadata-editor-container"
-                            style={{
-                                width: `${metadataEditorWidth}px`,
-                                minWidth: '200px',
-                                // Remove or increase the maxWidth limit
-                                // maxWidth: '1000px'
-                            }}
+                            style={{ width: `${metadataEditorWidth}px`, minWidth: '200px', maxWidth: '1000px' }}
                         >
                             <NodeMetadataEditor
                                 node={selectedNode || nodes.find(node => node.id === focusedNodeId)}

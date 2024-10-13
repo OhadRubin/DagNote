@@ -39,7 +39,6 @@
     background-color: #f9f9f9;
     flex: 0 0 auto;
     min-width: 200px;
-    /* No max-width property here */
 }
 
 .metadata-editor {
