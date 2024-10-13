@@ -1,24 +1,28 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './styles.css'; // Import the CSS file
+import PropTypes from 'prop-types';
 
-// Move NodeMetadataEditor component here
-const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur, edges, onPortLabelChange }) => {
+const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur, edges, onPortLabelChange, onLabelChange }) => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         onUpdate({...node.metadata, [name]: value });
+    };
+
+    const handleLabelChange = (e) => {
+        onLabelChange(node.id, e.target.value);
     };
 
     const connectedEdges = edges.filter(edge => edge.fromNodeId === node.id || edge.toNodeId === node.id);
 
     return (
         <div className="metadata-editor">
-            <h3>Edit Node Metadata</h3>
+            <h3>Edit Node</h3>
             <label>
-                <span>Title:</span>
+                <span>Label:</span>
                 <input
-                    name="title"
-                    value={node.metadata.title || ''}
-                    onChange={handleChange}
+                    name="label"
+                    value={node.label || ''}
+                    onChange={handleLabelChange}
                     onFocus={onFocus}
                     onBlur={onBlur}
                 />
@@ -32,6 +36,8 @@ const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur, edges, onPortLabe
                     onChange={handleChange}
                     onFocus={onFocus}
                     onBlur={onBlur}
+                    rows="4"
+                    cols="50"
                 />
             </label>
             <h4>Connected Ports</h4>
@@ -63,6 +69,16 @@ const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur, edges, onPortLabe
             ))}
         </div>
     );
+};
+
+NodeMetadataEditor.propTypes = {
+    node: PropTypes.object.isRequired,
+    onUpdate: PropTypes.func.isRequired,
+    onFocus: PropTypes.func.isRequired,
+    onBlur: PropTypes.func.isRequired,
+    edges: PropTypes.array.isRequired,
+    onPortLabelChange: PropTypes.func.isRequired,
+    onLabelChange: PropTypes.func.isRequired,
 };
 
 const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
@@ -314,7 +330,7 @@ const DAGNoteEditor = () => {
             id: `node-${Date.now()}`,
             x,
             y,
-            text: '',
+            label: 'New Node',
             metadata: {} // Initialize metadata field
         };
         setNodes(prevNodes => {
@@ -482,11 +498,11 @@ const DAGNoteEditor = () => {
                 <foreignObject x="-45" y="-25" width="90" height="50">
                     <input
                         type="text"
-                        value={node.text}
-                        onChange={(e) => handleNodeTextChange(e, node.id)}
+                        value={node.label}
+                        onChange={(e) => handleLabelChange(node.id, e.target.value)}
                         onBlur={() => {
                             setEditingNode(null);
-                            saveState(nodes, edges); // Save state after editing node text
+                            saveState(nodes, edges); // Save state after editing node label
                         }}
                         onFocus={() => setSelectedNodeId(null)} // Deselect node when focus enters the input
                         autoFocus
@@ -502,7 +518,7 @@ const DAGNoteEditor = () => {
                 </foreignObject>
             ) : (
                 <text x="0" y="0" textAnchor="middle" dominantBaseline="middle" fontSize="14" pointerEvents="none">
-                    {node.text}
+                    {node.label}
                 </text>
             )}
         </g>
@@ -565,7 +581,7 @@ const DAGNoteEditor = () => {
     const exportToDot = () => {
         let dot = 'digraph G {\n';
         nodes.forEach(node => {
-            dot += `  "${node.id}" [label="${node.text}"];\n`;
+            dot += `  "${node.id}" [label="${node.label}"];\n`;
         });
         edges.forEach(edge => {
             dot += `  "${edge.fromNodeId}" -> "${edge.toNodeId}";\n`;
@@ -595,6 +611,17 @@ const DAGNoteEditor = () => {
             });
             saveState(nodes, updatedEdges);
             return updatedEdges;
+        });
+    };
+
+    // Add a new function to handle label changes
+    const handleLabelChange = (nodeId, newLabel) => {
+        setNodes(prevNodes => {
+            const updatedNodes = prevNodes.map(node =>
+                node.id === nodeId ? {...node, label: newLabel} : node
+            );
+            saveState(updatedNodes, edges);
+            return updatedNodes;
         });
     };
 
@@ -654,6 +681,7 @@ const DAGNoteEditor = () => {
                         onBlur={handleMetadataEditorBlur}
                         edges={edges}
                         onPortLabelChange={handlePortLabelChange}
+                        onLabelChange={handleLabelChange}
                     />
                 </div>
             )}
