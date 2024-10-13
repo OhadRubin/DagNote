@@ -716,7 +716,7 @@ const DAGNoteEditor = () => {
                         />
                         <div
                             className="metadata-editor-container"
-                            style={{ width: `${metadataEditorWidth}px`, minWidth: '200px', maxWidth: '1000px' }}
+                            style={{ width: `${metadataEditorWidth}px`}}
                         >
                             <NodeMetadataEditor
                                 node={selectedNode || nodes.find(node => node.id === focusedNodeId)}
