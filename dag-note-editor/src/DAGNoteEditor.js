@@ -85,12 +85,18 @@ NodeMetadataEditor.propTypes = {
     onLabelChange: PropTypes.func.isRequired,
 };
 
-const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
+const PortCircle = ({ x, y, port, nodeId, color, onLabelChange, onSelectPort, isSelected }) => {
     const [isEditing, setIsEditing] = useState(false);
+
+    const handleClick = (e) => {
+        e.stopPropagation();
+        onSelectPort(port); // Set the selected port
+    };
 
     const handleDoubleClick = (e) => {
         e.stopPropagation();
         setIsEditing(true);
+        onSelectPort(port); // Also select the port on double-click
     };
 
     const handleBlur = () => {
@@ -98,7 +104,7 @@ const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
     };
 
     return (
-        <g transform={`translate(${x}, ${y})`}>
+        <g transform={`translate(${x}, ${y})`} onClick={handleClick}>
             <circle r="5" fill={color} />
             {isEditing ? (
                 <foreignObject x="10" y="-10" width="100" height="20">
@@ -123,6 +129,11 @@ const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
                     fontSize="12"
                     fill="black"
                     onDoubleClick={handleDoubleClick}
+                    style={{
+                        cursor: 'pointer',
+                        stroke: isSelected ? 'blue' : 'none', // Highlight border if selected
+                        strokeWidth: isSelected ? 1 : 0,
+                    }}
                 >
                     {port.label}
                 </text>
@@ -159,6 +170,9 @@ const DAGNoteEditor = () => {
     const selectedNode = useMemo(
         () => nodes.find((node) => node.id === selectedNodeId), [nodes, selectedNodeId]
     );
+
+    // Add state to track selected port
+    const [selectedPort, setSelectedPort] = useState(null);
 
     // Add a new state to track if the metadata editor is focused
     const [isMetadataEditorFocused, setIsMetadataEditorFocused] = useState(false);
@@ -229,6 +243,8 @@ const DAGNoteEditor = () => {
                 setSelectedNodeId(null);
             }
         }
+
+        setSelectedPort(null); // Deselect port when clicking elsewhere
     };
 
     // Update the handleMouseMove function (unchanged)
@@ -490,6 +506,8 @@ const DAGNoteEditor = () => {
                     nodeId={edge.fromNodeId}
                     color="green"
                     onLabelChange={handlePortLabelChange}
+                    onSelectPort={setSelectedPort} // Pass setSelectedPort
+                    isSelected={selectedPort && selectedPort.id === edge.fromPort.id} // Determine if this port is selected
                 />
                 <PortCircle
                     x={twoThirdsPoint.x}
@@ -498,6 +516,8 @@ const DAGNoteEditor = () => {
                     nodeId={edge.toNodeId}
                     color="blue"
                     onLabelChange={handlePortLabelChange}
+                    onSelectPort={setSelectedPort} // Pass setSelectedPort
+                    isSelected={selectedPort && selectedPort.id === edge.toPort.id} // Determine if this port is selected
                 />
             </g>
         );
@@ -659,6 +679,22 @@ const DAGNoteEditor = () => {
         window.addEventListener('mouseup', handleMouseUp);
     };
 
+    // Determine the node to pass to NodeMetadataEditor
+    let nodeForEditor = selectedNode || nodes.find(node => node.id === focusedNodeId);
+
+    if (!nodeForEditor && selectedPort) {
+        // Find the node associated with the selectedPort
+        const edgeContainingPort = edges.find(
+            edge => edge.fromPort.id === selectedPort.id || edge.toPort.id === selectedPort.id
+        );
+        if (edgeContainingPort) {
+            const nodeId = edgeContainingPort.fromPort.id === selectedPort.id
+                ? edgeContainingPort.fromNodeId
+                : edgeContainingPort.toNodeId;
+            nodeForEditor = nodes.find(node => node.id === nodeId);
+        }
+    }
+
     console.log('Selected node:', selectedNode);
     console.log('Focused node ID:', focusedNodeId);
 
@@ -710,7 +746,7 @@ const DAGNoteEditor = () => {
                         </g>
                     </svg>
                 </div>
-                {(selectedNode || focusedNodeId) && (
+                {(selectedNode || focusedNodeId || selectedPort) && (
                     <>
                         <div
                             className="resizer"
@@ -721,9 +757,10 @@ const DAGNoteEditor = () => {
                             style={{ width: `${metadataEditorWidth}px`}}
                         >
                             <NodeMetadataEditor
-                                node={selectedNode || nodes.find(node => node.id === focusedNodeId)}
+                                node={nodeForEditor}
+                                port={selectedPort}
                                 onUpdate={handleMetadataUpdate}
-                                onFocus={() => handleMetadataEditorFocus(selectedNode ? selectedNode.id : focusedNodeId)}
+                                onFocus={() => handleMetadataEditorFocus(nodeForEditor ? nodeForEditor.id : null)}
                                 onBlur={handleMetadataEditorBlur}
                                 edges={edges}
                                 onPortLabelChange={handlePortLabelChange}
