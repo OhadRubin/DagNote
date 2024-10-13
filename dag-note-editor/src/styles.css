@@ -5,29 +5,41 @@
 }
 
 .toolbar {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 1000;
+    padding: 10px;
+    background-color: #f0f0f0;
 }
 
 .main-content {
     display: flex;
     flex: 1;
     overflow: hidden;
+    min-height: 0;
 }
 
 .svg-container {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 200px;
     overflow: hidden;
+    min-height: 0;
+}
+
+.resizer {
+    width: 8px;
+    background-color: #bbb;
+    cursor: col-resize;
+    transition: background-color 0.3s;
+}
+
+.resizer:hover {
+    background-color: #999;
 }
 
 .metadata-editor-container {
-    width: 300px;
-    border-left: 1px solid #ccc;
-    padding: 10px;
     overflow-y: auto;
-    background-color: #f8f8f8;
+    background-color: #f9f9f9;
+    flex: 0 0 auto;
+    min-width: 200px;
+    /* No max-width property here */
 }
 
 .metadata-editor {
@@ -63,9 +75,12 @@
     resize: vertical;
 }
 
-.resizer {
-    width: 5px;
-    cursor: col-resize;
-    background-color: #ccc;
-    z-index: 1;
+
+/* Add these styles to your existing CSS file */
+
+.toolbar button {
+    margin-right: 10px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
 }

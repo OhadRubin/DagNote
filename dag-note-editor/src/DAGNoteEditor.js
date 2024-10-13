@@ -145,6 +145,8 @@ const DAGNoteEditor = () => {
     const [history, setHistory] = useState([]);
     const [currentStateIndex, setCurrentStateIndex] = useState(-1);
     const [focusedNodeId, setFocusedNodeId] = useState(null);
+    const [metadataEditorWidth, setMetadataEditorWidth] = useState(300); // Initial width in pixels
+    const mainContentRef = useRef(null);
 
     const svgRef = useRef(null);
     const gRef = useRef(null);
@@ -158,9 +160,6 @@ const DAGNoteEditor = () => {
 
     // Add a new state to track if the metadata editor is focused
     const [isMetadataEditorFocused, setIsMetadataEditorFocused] = useState(false);
-
-    // Add new state for metadata editor width
-    const [metadataEditorWidth, setMetadataEditorWidth] = useState(300); // Initial width in pixels
 
     // Utility functions (unchanged)
     const isPointInsideNode = (point, node) => {
@@ -634,19 +633,22 @@ const DAGNoteEditor = () => {
     // Add event handlers for resizing
     const handleMouseDownOnResizer = (e) => {
         e.preventDefault();
-        window.addEventListener('mousemove', handleMouseMoveOnResizer);
-        window.addEventListener('mouseup', handleMouseUpOnResizer);
-    };
+        const startX = e.clientX;
+        const startWidth = metadataEditorWidth;
 
-    const handleMouseMoveOnResizer = (e) => {
-        // Calculate new width
-        const newWidth = window.innerWidth - e.clientX;
-        setMetadataEditorWidth(newWidth);
-    };
+        const handleMouseMove = (e) => {
+            const deltaX = startX - e.clientX;
+            const newWidth = Math.max(200, Math.min(2000, startWidth + deltaX)); // Increased max width to 2000px
+            setMetadataEditorWidth(newWidth);
+        };
 
-    const handleMouseUpOnResizer = () => {
-        window.removeEventListener('mousemove', handleMouseMoveOnResizer);
-        window.removeEventListener('mouseup', handleMouseUpOnResizer);
+        const handleMouseUp = () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
     };
 
     console.log('Selected node:', selectedNode);
@@ -659,11 +661,8 @@ const DAGNoteEditor = () => {
                 <button onClick={handleLoad}>Load</button>
                 <button onClick={exportToDot}>Export to DOT</button>
             </div>
-            <div className="main-content">
-                <div
-                    className="svg-container"
-                    style={{ flex: 1 }} // Allow it to grow
-                >
+            <div className="main-content" ref={mainContentRef}>
+                <div className="svg-container">
                     <svg
                         ref={svgRef}
                         width="100%"
@@ -673,11 +672,11 @@ const DAGNoteEditor = () => {
                         onMouseUp={handleMouseUp}
                         onDoubleClick={handleDoubleClick}
                         style={{
-                            cursor: isPanning ?
-                                'grabbing' :
-                                isShiftPressed ?
-                                'crosshair' :
-                                'default',
+                            cursor: isPanning
+                                ? 'grabbing'
+                                : isShiftPressed
+                                ? 'crosshair'
+                                : 'default',
                         }}
                         tabIndex="0"
                     >
@@ -703,28 +702,32 @@ const DAGNoteEditor = () => {
                         </g>
                     </svg>
                 </div>
-                {/** Add the resizer */}
                 {(selectedNode || focusedNodeId) && (
-                    <div
-                        className="resizer"
-                        onMouseDown={handleMouseDownOnResizer}
-                    />
-                )}
-                {(selectedNode || focusedNodeId) && (
-                    <div
-                        className="metadata-editor-container"
-                        style={{ width: metadataEditorWidth }}
-                    >
-                        <NodeMetadataEditor
-                            node={selectedNode || nodes.find(node => node.id === focusedNodeId)}
-                            onUpdate={handleMetadataUpdate}
-                            onFocus={() => handleMetadataEditorFocus(selectedNode ? selectedNode.id : focusedNodeId)}
-                            onBlur={handleMetadataEditorBlur}
-                            edges={edges}
-                            onPortLabelChange={handlePortLabelChange}
-                            onLabelChange={handleLabelChange}
+                    <>
+                        <div
+                            className="resizer"
+                            onMouseDown={handleMouseDownOnResizer}
                         />
-                    </div>
+                        <div
+                            className="metadata-editor-container"
+                            style={{
+                                width: `${metadataEditorWidth}px`,
+                                minWidth: '200px',
+                                // Remove or increase the maxWidth limit
+                                // maxWidth: '1000px'
+                            }}
+                        >
+                            <NodeMetadataEditor
+                                node={selectedNode || nodes.find(node => node.id === focusedNodeId)}
+                                onUpdate={handleMetadataUpdate}
+                                onFocus={() => handleMetadataEditorFocus(selectedNode ? selectedNode.id : focusedNodeId)}
+                                onBlur={handleMetadataEditorBlur}
+                                edges={edges}
+                                onPortLabelChange={handlePortLabelChange}
+                                onLabelChange={handleLabelChange}
+                            />
+                        </div>
+                    </>
                 )}
             </div>
         </div>
