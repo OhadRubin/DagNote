@@ -159,6 +159,9 @@ const DAGNoteEditor = () => {
     // Add a new state to track if the metadata editor is focused
     const [isMetadataEditorFocused, setIsMetadataEditorFocused] = useState(false);
 
+    // Add new state for metadata editor width
+    const [metadataEditorWidth, setMetadataEditorWidth] = useState(300); // Initial width in pixels
+
     // Utility functions (unchanged)
     const isPointInsideNode = (point, node) => {
         const dx = point.x - node.x;
@@ -628,6 +631,24 @@ const DAGNoteEditor = () => {
         });
     };
 
+    // Add event handlers for resizing
+    const handleMouseDownOnResizer = (e) => {
+        e.preventDefault();
+        window.addEventListener('mousemove', handleMouseMoveOnResizer);
+        window.addEventListener('mouseup', handleMouseUpOnResizer);
+    };
+
+    const handleMouseMoveOnResizer = (e) => {
+        // Calculate new width
+        const newWidth = window.innerWidth - e.clientX;
+        setMetadataEditorWidth(newWidth);
+    };
+
+    const handleMouseUpOnResizer = () => {
+        window.removeEventListener('mousemove', handleMouseMoveOnResizer);
+        window.removeEventListener('mouseup', handleMouseUpOnResizer);
+    };
+
     console.log('Selected node:', selectedNode);
     console.log('Focused node ID:', focusedNodeId);
 
@@ -638,59 +659,74 @@ const DAGNoteEditor = () => {
                 <button onClick={handleLoad}>Load</button>
                 <button onClick={exportToDot}>Export to DOT</button>
             </div>
-            <div className="svg-container">
-                <svg
-                    ref={svgRef}
-                    width="100%"
-                    height="100%"
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onDoubleClick={handleDoubleClick}
-                    style={{
-                        cursor: isPanning ?
-                            'grabbing' :
-                            isShiftPressed ?
-                            'crosshair' :
-                            'default',
-                    }}
-                    tabIndex="0"
+            <div className="main-content">
+                <div
+                    className="svg-container"
+                    style={{ flex: 1 }} // Allow it to grow
                 >
-                    <g ref={gRef} transform={`translate(${panOffset.x}, ${panOffset.y})`}>
-                        <defs>
-                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                                <polygon points="0 0, 10 3.5, 0 7" fill="black" />
-                            </marker>
-                        </defs>
-                        {edges.map(renderEdge)}
-                        {nodes.map(renderNode)}
-                        {edgePreview && (
-                            <line
-                                x1={edgePreview.start.x}
-                                y1={edgePreview.start.y}
-                                x2={edgePreview.end.x}
-                                y2={edgePreview.end.y}
-                                stroke="black"
-                                strokeWidth="2"
-                                strokeDasharray="5,5"
-                            />
-                        )}
-                    </g>
-                </svg>
-            </div>
-            {(selectedNode || focusedNodeId) && (
-                <div className="metadata-editor-container">
-                    <NodeMetadataEditor
-                        node={selectedNode || nodes.find(node => node.id === focusedNodeId)}
-                        onUpdate={handleMetadataUpdate}
-                        onFocus={() => handleMetadataEditorFocus(selectedNode ? selectedNode.id : focusedNodeId)}
-                        onBlur={handleMetadataEditorBlur}
-                        edges={edges}
-                        onPortLabelChange={handlePortLabelChange}
-                        onLabelChange={handleLabelChange}
-                    />
+                    <svg
+                        ref={svgRef}
+                        width="100%"
+                        height="100%"
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onDoubleClick={handleDoubleClick}
+                        style={{
+                            cursor: isPanning ?
+                                'grabbing' :
+                                isShiftPressed ?
+                                'crosshair' :
+                                'default',
+                        }}
+                        tabIndex="0"
+                    >
+                        <g ref={gRef} transform={`translate(${panOffset.x}, ${panOffset.y})`}>
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="black" />
+                                </marker>
+                            </defs>
+                            {edges.map(renderEdge)}
+                            {nodes.map(renderNode)}
+                            {edgePreview && (
+                                <line
+                                    x1={edgePreview.start.x}
+                                    y1={edgePreview.start.y}
+                                    x2={edgePreview.end.x}
+                                    y2={edgePreview.end.y}
+                                    stroke="black"
+                                    strokeWidth="2"
+                                    strokeDasharray="5,5"
+                                />
+                            )}
+                        </g>
+                    </svg>
                 </div>
-            )}
+                {/** Add the resizer */}
+                {(selectedNode || focusedNodeId) && (
+                    <div
+                        className="resizer"
+                        onMouseDown={handleMouseDownOnResizer}
+                    />
+                )}
+                {(selectedNode || focusedNodeId) && (
+                    <div
+                        className="metadata-editor-container"
+                        style={{ width: metadataEditorWidth }}
+                    >
+                        <NodeMetadataEditor
+                            node={selectedNode || nodes.find(node => node.id === focusedNodeId)}
+                            onUpdate={handleMetadataUpdate}
+                            onFocus={() => handleMetadataEditorFocus(selectedNode ? selectedNode.id : focusedNodeId)}
+                            onBlur={handleMetadataEditorBlur}
+                            edges={edges}
+                            onPortLabelChange={handlePortLabelChange}
+                            onLabelChange={handleLabelChange}
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
