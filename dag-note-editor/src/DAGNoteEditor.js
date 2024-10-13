@@ -14,6 +14,10 @@ const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur, edges, onPortLabe
 
     const connectedEdges = edges.filter(edge => edge.fromNodeId === node.id || edge.toNodeId === node.id);
 
+    const handlePortLabelChange = (portId, newLabel) => {
+        onPortLabelChange(node.id, portId, newLabel);
+    };
+
     return (
         <div className="metadata-editor">
             <h3>Edit Node</h3>
@@ -48,7 +52,7 @@ const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur, edges, onPortLabe
                             <span>Output Port:</span>
                             <input
                                 value={edge.fromPort.label}
-                                onChange={(e) => onPortLabelChange(node.id, edge.fromPort.id, e.target.value)}
+                                onChange={(e) => handlePortLabelChange(edge.fromPort.id, e.target.value)}
                                 onFocus={onFocus}
                                 onBlur={onBlur}
                             />
@@ -59,7 +63,7 @@ const NodeMetadataEditor = ({ node, onUpdate, onFocus, onBlur, edges, onPortLabe
                             <span>Input Port:</span>
                             <input
                                 value={edge.toPort.label}
-                                onChange={(e) => onPortLabelChange(node.id, edge.toPort.id, e.target.value)}
+                                onChange={(e) => handlePortLabelChange(edge.toPort.id, e.target.value)}
                                 onFocus={onFocus}
                                 onBlur={onBlur}
                             />
@@ -83,7 +87,6 @@ NodeMetadataEditor.propTypes = {
 
 const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [label, setLabel] = useState(port.label);
 
     const handleDoubleClick = (e) => {
         e.stopPropagation();
@@ -92,7 +95,6 @@ const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
 
     const handleBlur = () => {
         setIsEditing(false);
-        onLabelChange(nodeId, port.id, label);
     };
 
     return (
@@ -102,8 +104,8 @@ const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
                 <foreignObject x="10" y="-10" width="100" height="20">
                     <input
                         type="text"
-                        value={label}
-                        onChange={(e) => setLabel(e.target.value)}
+                        value={port.label}
+                        onChange={(e) => onLabelChange(nodeId, port.id, e.target.value)}
                         onBlur={handleBlur}
                         autoFocus
                         style={{
@@ -122,7 +124,7 @@ const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
                     fill="black"
                     onDoubleClick={handleDoubleClick}
                 >
-                    {label}
+                    {port.label}
                 </text>
             )}
         </g>
