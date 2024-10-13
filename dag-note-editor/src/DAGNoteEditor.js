@@ -2,19 +2,53 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import NodeMetadataEditor from './NodeMetadataEditor';
 import './styles.css'; // Import the CSS file
 
-const PortCircle = ({ x, y, port, nodeId, color }) => ( <
-    g transform = { `translate(${x}, ${y})` } >
-    <
-    circle r = "5"
-    fill = { color }
-    /> <
-    text x = "10"
-    y = "5"
-    fontSize = "12"
-    fill = "black" > { port.label } <
-    /text> < /
-    g >
-);
+const PortCircle = ({ x, y, port, nodeId, color, onLabelChange }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [label, setLabel] = useState(port.label);
+
+    const handleDoubleClick = (e) => {
+        e.stopPropagation();
+        setIsEditing(true);
+    };
+
+    const handleBlur = () => {
+        setIsEditing(false);
+        onLabelChange(nodeId, port.id, label);
+    };
+
+    return (
+        <g transform={`translate(${x}, ${y})`}>
+            <circle r="5" fill={color} />
+            {isEditing ? (
+                <foreignObject x="10" y="-10" width="100" height="20">
+                    <input
+                        type="text"
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
+                        onBlur={handleBlur}
+                        autoFocus
+                        style={{
+                            width: '100%',
+                            border: 'none',
+                            background: 'transparent',
+                            fontSize: '12px',
+                        }}
+                    />
+                </foreignObject>
+            ) : (
+                <text
+                    x="10"
+                    y="5"
+                    fontSize="12"
+                    fill="black"
+                    onDoubleClick={handleDoubleClick}
+                >
+                    {label}
+                </text>
+            )}
+        </g>
+    );
+};
 
 const DAGNoteEditor = () => {
     const [nodes, setNodes] = useState([]);
@@ -40,8 +74,7 @@ const DAGNoteEditor = () => {
 
     // Derive selectedNode from nodes and selectedNodeId
     const selectedNode = useMemo(
-        () => nodes.find((node) => node.id === selectedNodeId),
-        [nodes, selectedNodeId]
+        () => nodes.find((node) => node.id === selectedNodeId), [nodes, selectedNodeId]
     );
 
     // Add a new state to track if the metadata editor is focused
@@ -121,7 +154,7 @@ const DAGNoteEditor = () => {
             setPanStart({ x: event.clientX, y: event.clientY });
         } else if (isDragging && draggedNode) {
             setNodes(prevNodes => prevNodes.map(n =>
-                n.id === draggedNode.id ? { ...n, x: point.x, y: point.y } : n
+                n.id === draggedNode.id ? {...n, x: point.x, y: point.y } : n
             ));
         } else if (edgeStart) {
             setEdgePreview({ start: edgeStart, end: point });
@@ -231,11 +264,11 @@ const DAGNoteEditor = () => {
 
     const deleteSelectedNode = () => {
 
-        if ( isMetadataEditorFocused || editingNode) {
-          return 
+        if (isMetadataEditorFocused || editingNode) {
+            return
         }
-            let updatedEdges = [];
-            setNodes(prevNodes => {
+        let updatedEdges = [];
+        setNodes(prevNodes => {
             const updatedNodes = prevNodes.filter(node => node.id !== selectedNodeId);
             setEdges(prevEdges => {
                 updatedEdges = prevEdges.filter(edge =>
@@ -257,12 +290,12 @@ const DAGNoteEditor = () => {
                 id: `edge-${Date.now()}`,
                 fromNodeId,
                 toNodeId,
-                fromPort: { label: 'Output', metadata: {} }, // Default output port
-                toPort: { label: 'Input', metadata: {} }     // Default input port
+                fromPort: { id: `port-${Date.now()}-from`, label: 'Output', metadata: {} },
+                toPort: { id: `port-${Date.now()}-to`, label: 'Input', metadata: {} }
             };
             setEdges(prevEdges => {
                 const updatedEdges = [...prevEdges, newEdge];
-                saveState(nodes, updatedEdges); // Use current nodes
+                saveState(nodes, updatedEdges);
                 return updatedEdges;
             });
         }
@@ -279,9 +312,9 @@ const DAGNoteEditor = () => {
     const handleMetadataUpdate = (updatedMetadata) => {
         setNodes((prevNodes) => {
             const updatedNodes = prevNodes.map((node) =>
-                node.id === selectedNodeId
-                    ? { ...node, metadata: updatedMetadata }
-                    : node
+                node.id === selectedNodeId ?
+                {...node, metadata: updatedMetadata } :
+                node
             );
             saveState(updatedNodes, edges);
             return updatedNodes;
@@ -302,8 +335,8 @@ const DAGNoteEditor = () => {
 
     // Function to calculate edge intersections (unchanged)
     const calculateIntersection = (fromNode, toNode) => {
-        const nodeWidth = 100;  // Width of the node rectangle
-        const nodeHeight = 60;  // Height of the node rectangle
+        const nodeWidth = 100; // Width of the node rectangle
+        const nodeHeight = 60; // Height of the node rectangle
 
         const dx = toNode.x - fromNode.x;
         const dy = toNode.y - fromNode.y;
@@ -361,16 +394,18 @@ const DAGNoteEditor = () => {
                 <PortCircle
                     x={oneThirdPoint.x}
                     y={oneThirdPoint.y}
-                    port={edge.fromPort || { label: 'Output', metadata: {} }}
+                    port={edge.fromPort}
                     nodeId={edge.fromNodeId}
                     color="green"
+                    onLabelChange={handlePortLabelChange}
                 />
                 <PortCircle
                     x={twoThirdsPoint.x}
                     y={twoThirdsPoint.y}
-                    port={edge.toPort || { label: 'Input', metadata: {} }}
+                    port={edge.toPort}
                     nodeId={edge.toNodeId}
                     color="blue"
+                    onLabelChange={handlePortLabelChange}
                 />
             </g>
         );
@@ -378,58 +413,35 @@ const DAGNoteEditor = () => {
 
     // Update the renderNode function
     const renderNode = (node) => (
-        <g
-            key={node.id}
-            transform={`translate(${node.x}, ${node.y})`}
-            style={{ cursor: 'pointer' }}
-        >
-            <rect
-                x="-50"
-                y="-30"
-                width="100"
-                height="60"
-                fill={selectedNodeId === node.id ? "lightblue" : "white"}
-                stroke="black"
-                strokeWidth="2"
-                rx="5"
-                ry="5"
-            />
-            {
-                editingNode && editingNode.id === node.id ? (
-                    <foreignObject x="-45" y="-25" width="90" height="50">
-                        <input
-                            type="text"
-                            value={node.text}
-                            onChange={(e) => handleNodeTextChange(e, node.id)}
-                            onBlur={() => {
-                                setEditingNode(null);
-                                saveState(nodes, edges); // Save state after editing node text
-                            }}
-                            onFocus={() => setSelectedNodeId(null)} // Deselect node when focus enters the input
-                            autoFocus
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                border: 'none',
-                                background: 'transparent',
-                                textAlign: 'center',
-                                fontSize: '14px',
-                            }}
-                        />
-                    </foreignObject>
-                ) : (
-                    <text
-                        x="0"
-                        y="0"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fontSize="14"
-                        pointerEvents="none"
-                    >
-                        {node.text}
-                    </text>
-                )
-            }
+        <g key={node.id} transform={`translate(${node.x}, ${node.y})`} style={{ cursor: 'pointer' }}>
+            <rect x="-50" y="-30" width="100" height="60" fill={selectedNodeId === node.id ? "lightblue" : "white"} stroke="black" strokeWidth="2" rx="5" ry="5" />
+            {editingNode && editingNode.id === node.id ? (
+                <foreignObject x="-45" y="-25" width="90" height="50">
+                    <input
+                        type="text"
+                        value={node.text}
+                        onChange={(e) => handleNodeTextChange(e, node.id)}
+                        onBlur={() => {
+                            setEditingNode(null);
+                            saveState(nodes, edges); // Save state after editing node text
+                        }}
+                        onFocus={() => setSelectedNodeId(null)} // Deselect node when focus enters the input
+                        autoFocus
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            border: 'none',
+                            background: 'transparent',
+                            textAlign: 'center',
+                            fontSize: '14px',
+                        }}
+                    />
+                </foreignObject>
+            ) : (
+                <text x="0" y="0" textAnchor="middle" dominantBaseline="middle" fontSize="14" pointerEvents="none">
+                    {node.text}
+                </text>
+            )}
         </g>
     );
 
@@ -507,6 +519,22 @@ const DAGNoteEditor = () => {
         document.body.removeChild(link);
     };
 
+    const handlePortLabelChange = (nodeId, portId, newLabel) => {
+        setEdges(prevEdges => {
+            const updatedEdges = prevEdges.map(edge => {
+                if (edge.fromNodeId === nodeId && edge.fromPort.id === portId) {
+                    return { ...edge, fromPort: { ...edge.fromPort, label: newLabel } };
+                }
+                if (edge.toNodeId === nodeId && edge.toPort.id === portId) {
+                    return { ...edge, toPort: { ...edge.toPort, label: newLabel } };
+                }
+                return edge;
+            });
+            saveState(nodes, updatedEdges);
+            return updatedEdges;
+        });
+    };
+
     return (
         <div className="editor-container">
             <div className="toolbar">
@@ -524,42 +552,33 @@ const DAGNoteEditor = () => {
                     onMouseUp={handleMouseUp}
                     onDoubleClick={handleDoubleClick}
                     style={{
-                        cursor: isPanning
-                            ? 'grabbing'
-                            : isShiftPressed
-                                ? 'crosshair'
-                                : 'default',
+                        cursor: isPanning ?
+                            'grabbing' :
+                            isShiftPressed ?
+                            'crosshair' :
+                            'default',
                     }}
                     tabIndex="0"
                 >
                     <g ref={gRef} transform={`translate(${panOffset.x}, ${panOffset.y})`}>
                         <defs>
-                            <marker
-                                id="arrowhead"
-                                markerWidth="10"
-                                markerHeight="7"
-                                refX="9"
-                                refY="3.5"
-                                orient="auto"
-                            >
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
                                 <polygon points="0 0, 10 3.5, 0 7" fill="black" />
                             </marker>
                         </defs>
                         {edges.map(renderEdge)}
                         {nodes.map(renderNode)}
-                        {
-                            edgePreview && (
-                                <line
-                                    x1={edgePreview.start.x}
-                                    y1={edgePreview.start.y}
-                                    x2={edgePreview.end.x}
-                                    y2={edgePreview.end.y}
-                                    stroke="black"
-                                    strokeWidth="2"
-                                    strokeDasharray="5,5"
-                                />
-                            )
-                        }
+                        {edgePreview && (
+                            <line
+                                x1={edgePreview.start.x}
+                                y1={edgePreview.start.y}
+                                x2={edgePreview.end.x}
+                                y2={edgePreview.end.y}
+                                stroke="black"
+                                strokeWidth="2"
+                                strokeDasharray="5,5"
+                            />
+                        )}
                     </g>
                 </svg>
             </div>
@@ -570,6 +589,8 @@ const DAGNoteEditor = () => {
                         onUpdate={handleMetadataUpdate}
                         onFocus={() => handleMetadataEditorFocus(selectedNode ? selectedNode.id : focusedNodeId)}
                         onBlur={handleMetadataEditorBlur}
+                        edges={edges}
+                        onPortLabelChange={handlePortLabelChange}
                     />
                 </div>
             )}
