@@ -103,6 +103,12 @@ const PortCircle = ({ x, y, port, nodeId, color, onLabelChange, onSelectPort, is
         setIsEditing(false);
     };
 
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.target.blur(); // This will trigger the onBlur event
+        }
+    };
+
     return (
         <g transform={`translate(${x}, ${y})`} onClick={handleClick}>
             <circle r="5" fill={color} />
@@ -113,6 +119,7 @@ const PortCircle = ({ x, y, port, nodeId, color, onLabelChange, onSelectPort, is
                         value={port.label}
                         onChange={(e) => onLabelChange(nodeId, port.id, e.target.value)}
                         onBlur={handleBlur}
+                        onKeyDown={handleKeyDown}
                         autoFocus
                         style={{
                             width: '100%',
@@ -536,6 +543,11 @@ const DAGNoteEditor = () => {
                         onBlur={() => {
                             setEditingNode(null);
                             saveState(nodes, edges); // Save state after editing node label
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.target.blur(); // This will trigger the onBlur event
+                            }
                         }}
                         onFocus={() => setSelectedNodeId(null)} // Deselect node when focus enters the input
                         autoFocus
