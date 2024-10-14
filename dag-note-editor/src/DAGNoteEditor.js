@@ -184,6 +184,8 @@ const DAGNoteEditor = () => {
     // Add a new state to track if the metadata editor is focused
     const [isMetadataEditorFocused, setIsMetadataEditorFocused] = useState(false);
 
+    const isInitialLoad = useRef(true); // Add this line
+
     // Utility functions (unchanged)
     const isPointInsideNode = (point, node) => {
         const dx = point.x - node.x;
@@ -362,7 +364,7 @@ const DAGNoteEditor = () => {
             id: `node-${Date.now()}`,
             x,
             y,
-            label: 'New Node',
+            label: '',
             metadata: {} // Initialize metadata field
         };
         setNodes(prevNodes => {
@@ -779,6 +781,24 @@ const DAGNoteEditor = () => {
 
     console.log('Selected node:', selectedNode);
     console.log('Focused node ID:', focusedNodeId);
+
+    // Add this useEffect to autosave the graph state
+    useEffect(() => {
+        if (nodes.length > 0 || edges.length > 0) {
+            const serializedState = serializeState();
+            localStorage.setItem('graphState', serializedState);
+        }
+    }, [nodes, edges, panOffset]);
+
+    // Load saved state from local storage on component mount
+    useEffect(() => {
+        const savedState = localStorage.getItem('graphState');
+        if (savedState) {
+            deserializeState(savedState);
+        } else {
+            saveState(nodes, edges); // Optional: save initial empty state
+        }
+    }, []);
 
     return (
         <div className="editor-container">
