@@ -371,6 +371,7 @@ const DAGNoteEditor = () => {
             return updatedNodes;
         });
         setSelectedNodeId(newNode.id);
+        setEditingNode(newNode);
     };
 
     const deleteSelectedNode = () => {
