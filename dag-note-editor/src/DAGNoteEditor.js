@@ -186,11 +186,34 @@ const DAGNoteEditor = () => {
 
     const isInitialLoad = useRef(true); // Add this line
 
-    // Utility functions (unchanged)
+    // Add this utility function at the top level of your component
+    const getNodeDimensions = (node) => {
+        const fontSize = 14; // Same as in your text element
+        const padding = 0.5; // Padding around the text
+        const approximateCharWidth = fontSize * 0.6; // Approximate width per character
+        const textWidth = node.label.length * approximateCharWidth;
+
+        const rectWidth = Math.max(textWidth + padding * 2, 100); // Minimum width of 100
+        const rectHeight = Math.max(fontSize + padding * 2, 30); // Minimum height of 60
+
+        return { rectWidth, rectHeight };
+    };
+
+    // Update isPointInsideNode function
     const isPointInsideNode = (point, node) => {
-        const dx = point.x - node.x;
-        const dy = point.y - node.y;
-        return Math.sqrt(dx * dx + dy * dy) <= nodeRadius;
+        const { rectWidth, rectHeight } = getNodeDimensions(node);
+
+        const left = node.x - rectWidth / 2;
+        const right = node.x + rectWidth / 2;
+        const top = node.y - rectHeight / 2;
+        const bottom = node.y + rectHeight / 2;
+
+        return (
+            point.x >= left &&
+            point.x <= right &&
+            point.y >= top &&
+            point.y <= bottom
+        );
     };
 
     const getTransformedPoint = (event) => {
@@ -451,36 +474,32 @@ const DAGNoteEditor = () => {
         setFocusedNodeId(null);
     };
 
-    // Function to calculate edge intersections (unchanged)
+    // Update calculateIntersection function
     const calculateIntersection = (fromNode, toNode) => {
-        const nodeWidth = 100; // Width of the node rectangle
-        const nodeHeight = 60; // Height of the node rectangle
+        const { rectWidth: fromNodeWidth, rectHeight: fromNodeHeight } = getNodeDimensions(fromNode);
+        const { rectWidth: toNodeWidth, rectHeight: toNodeHeight } = getNodeDimensions(toNode);
 
         const dx = toNode.x - fromNode.x;
         const dy = toNode.y - fromNode.y;
 
         const angle = Math.atan2(dy, dx);
 
-        // Calculate the point where the line intersects the rectangle
         let intersectionX, intersectionY;
 
         if (Math.abs(Math.cos(angle)) > Math.abs(Math.sin(angle))) {
             // Intersects with left or right side
-            intersectionX = Math.sign(dx) * (nodeWidth / 2);
-            intersectionY = dy * (intersectionX / dx);
+            intersectionX = fromNode.x + Math.sign(dx) * (fromNodeWidth / 2);
+            intersectionY = fromNode.y + dy * (fromNodeWidth / 2) / Math.abs(dx);
         } else {
             // Intersects with top or bottom side
-            intersectionY = Math.sign(dy) * (nodeHeight / 2);
-            intersectionX = dx * (intersectionY / dy);
+            intersectionY = fromNode.y + Math.sign(dy) * (fromNodeHeight / 2);
+            intersectionX = fromNode.x + dx * (fromNodeHeight / 2) / Math.abs(dy);
         }
 
-        return {
-            x: fromNode.x + intersectionX,
-            y: fromNode.y + intersectionY
-        };
+        return { x: intersectionX, y: intersectionY };
     };
 
-    // Modify the renderEdge function
+    // Update renderEdge function to use the new calculateIntersection
     const renderEdge = (edge) => {
         const fromNode = nodes.find(node => node.id === edge.fromNodeId);
         const toNode = nodes.find(node => node.id === edge.toNodeId);
@@ -489,13 +508,19 @@ const DAGNoteEditor = () => {
         const startPoint = calculateIntersection(fromNode, toNode);
         const endPoint = calculateIntersection(toNode, fromNode);
 
+        // Calculate the total length of the edge
+        const dx = endPoint.x - startPoint.x;
+        const dy = endPoint.y - startPoint.y;
+        const edgeLength = Math.sqrt(dx * dx + dy * dy);
+
+        // Calculate positions for ports (1/3 and 2/3 along the edge)
         const oneThirdPoint = {
-            x: startPoint.x + (endPoint.x - startPoint.x) / 3,
-            y: startPoint.y + (endPoint.y - startPoint.y) / 3,
+            x: startPoint.x + dx / 3,
+            y: startPoint.y + dy / 3,
         };
         const twoThirdsPoint = {
-            x: startPoint.x + 2 * (endPoint.x - startPoint.x) / 3,
-            y: startPoint.y + 2 * (endPoint.y - startPoint.y) / 3,
+            x: startPoint.x + 2 * dx / 3,
+            y: startPoint.y + 2 * dy / 3,
         };
 
         return (
@@ -516,8 +541,8 @@ const DAGNoteEditor = () => {
                     nodeId={edge.fromNodeId}
                     color="green"
                     onLabelChange={handlePortLabelChange}
-                    onSelectPort={setSelectedPort} // Pass setSelectedPort
-                    isSelected={selectedPort && selectedPort.id === edge.fromPort.id} // Determine if this port is selected
+                    onSelectPort={setSelectedPort}
+                    isSelected={selectedPort && selectedPort.id === edge.fromPort.id}
                 />
                 <PortCircle
                     x={twoThirdsPoint.x}
@@ -526,24 +551,16 @@ const DAGNoteEditor = () => {
                     nodeId={edge.toNodeId}
                     color="blue"
                     onLabelChange={handlePortLabelChange}
-                    onSelectPort={setSelectedPort} // Pass setSelectedPort
-                    isSelected={selectedPort && selectedPort.id === edge.toPort.id} // Determine if this port is selected
+                    onSelectPort={setSelectedPort}
+                    isSelected={selectedPort && selectedPort.id === edge.toPort.id}
                 />
             </g>
         );
     };
 
-    // Update the renderNode function
+    // Update renderNode function to use getNodeDimensions
     const renderNode = (node) => {
-        // Calculate text dimensions
-        const fontSize = 14; // Same as in your text element
-        const padding = 10; // Padding around the text
-        const approximateCharWidth = fontSize * 0.6; // Approximate width per character
-        const textWidth = node.label.length * approximateCharWidth;
-
-        // Set rectangle dimensions based on text width
-        const rectWidth = textWidth + padding * 2;
-        const rectHeight = fontSize + padding * 2;
+        const { rectWidth, rectHeight } = getNodeDimensions(node);
 
         return (
             <g
@@ -564,10 +581,10 @@ const DAGNoteEditor = () => {
                 />
                 {editingNode && editingNode.id === node.id ? (
                     <foreignObject
-                        x={-rectWidth / 2 + padding}
-                        y={-rectHeight / 2 + padding}
-                        width={rectWidth - padding * 2}
-                        height={rectHeight - padding * 2}
+                        x={-rectWidth / 2 + 5}
+                        y={-rectHeight / 2 + 5}
+                        width={rectWidth - 10}
+                        height={rectHeight - 10}
                     >
                         <input
                             type="text"
@@ -575,14 +592,14 @@ const DAGNoteEditor = () => {
                             onChange={(e) => handleLabelChange(node.id, e.target.value)}
                             onBlur={() => {
                                 setEditingNode(null);
-                                saveState(nodes, edges); // Save state after editing node label
+                                saveState(nodes, edges);
                             }}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                    e.target.blur(); // This will trigger the onBlur event
+                                    e.target.blur();
                                 }
                             }}
-                            onFocus={() => setSelectedNodeId(null)} // Deselect node when focus enters the input
+                            onFocus={() => setSelectedNodeId(null)}
                             autoFocus
                             style={{
                                 width: '100%',
@@ -590,7 +607,7 @@ const DAGNoteEditor = () => {
                                 border: 'none',
                                 background: 'transparent',
                                 textAlign: 'center',
-                                fontSize: `${fontSize}px`,
+                                fontSize: '14px',
                             }}
                         />
                     </foreignObject>
@@ -600,7 +617,7 @@ const DAGNoteEditor = () => {
                         y="0"
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        fontSize={fontSize}
+                        fontSize="14"
                         pointerEvents="none"
                     >
                         {node.label}
