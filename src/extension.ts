@@ -1,38 +1,41 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 
 export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
-        vscode.commands.registerCommand('dagNoteEditor.open', () => {
+        vscode.commands.registerCommand('dag-note-editor.openEditor', () => {
             const panel = vscode.window.createWebviewPanel(
                 'dagNoteEditor',
                 'DAG Note Editor',
                 vscode.ViewColumn.One,
                 {
                     enableScripts: true,
-                    localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'out'))]
+                    localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'build'))]
                 }
             );
 
-            panel.webview.html = getWebviewContent(panel.webview, context);
+            const updateWebview = () => {
+                const buildPath = path.join(context.extensionPath, 'build');
+                const htmlPath = path.join(buildPath, 'index.html');
+                let html = fs.readFileSync(htmlPath, 'utf-8');
 
-            panel.webview.onDidReceiveMessage(
-                async message => {
-                    switch (message.command) {
-                        case 'saveToFile':
-                            await saveDAGToFile(message.data);
-                            return;
-                        case 'loadFromFile':
-                            await loadDAGFromFile(panel);
-                            return;
-                        case 'exportToDot':
-                            await exportToDot(message.data);
-                            return;
-                    }
-                },
-                undefined,
-                context.subscriptions
-            );
+                // Replace asset paths
+                html = html.replace(/href="\/static/g, `href="${panel.webview.asWebviewUri(vscode.Uri.file(path.join(buildPath, 'static')))}`);
+                html = html.replace(/src="\/static/g, `src="${panel.webview.asWebviewUri(vscode.Uri.file(path.join(buildPath, 'static')))}`);
+
+                panel.webview.html = html;
+            };
+
+            updateWebview();
+
+            // Watch for changes in the build directory
+            const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(context.extensionPath, 'build/**'));
+            watcher.onDidChange(() => updateWebview());
+            watcher.onDidCreate(() => updateWebview());
+            watcher.onDidDelete(() => updateWebview());
+
+            panel.onDidDispose(() => watcher.dispose());
         })
     );
 }

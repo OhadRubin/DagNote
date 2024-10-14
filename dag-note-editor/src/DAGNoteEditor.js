@@ -644,19 +644,50 @@ const DAGNoteEditor = () => {
 
     // Add these new functions to handle saving and loading
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const serializedState = serializeState();
-        localStorage.setItem('dagNoteEditorState', serializedState);
-        alert('State saved successfully!');
+        try {
+            // Open file picker and get a file handle to save to
+            const handle = await window.showSaveFilePicker({
+                suggestedName: 'dag-note-editor-state.json',
+                types: [{
+                    description: 'JSON File',
+                    accept: {'application/json': ['.json']},
+                }],
+            });
+            
+            // Create a writable stream and write the data
+            const writable = await handle.createWritable();
+            await writable.write(serializedState);
+            await writable.close();
+            
+            // alert('State saved successfully!');
+        } catch (err) {
+            console.error('Failed to save the file:', err);
+            alert('Failed to save the file. Please try again.');
+        }
     };
 
-    const handleLoad = () => {
-        const savedState = localStorage.getItem('dagNoteEditorState');
-        if (savedState) {
-            deserializeState(savedState);
-            alert('State loaded successfully!');
-        } else {
-            alert('No saved state found.');
+    const handleLoad = async () => {
+        try {
+            // Open file picker and get a file handle to read from
+            const [handle] = await window.showOpenFilePicker({
+                types: [{
+                    description: 'JSON File',
+                    accept: {'application/json': ['.json']},
+                }],
+                multiple: false
+            });
+            
+            // Get the file contents
+            const file = await handle.getFile();
+            const contents = await file.text();
+            
+            deserializeState(contents);
+            // alert('State loaded successfully!');
+        } catch (err) {
+            console.error('Failed to load the file:', err);
+            alert('Failed to load the file. Please try again.');
         }
     };
 
