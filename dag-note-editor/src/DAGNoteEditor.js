@@ -800,12 +800,42 @@ const DAGNoteEditor = () => {
         }
     }, []);
 
+    // Add this new function to reset all states
+    const resetAllState = () => {
+        setNodes([]);
+        setEdges([]);
+        setIsShiftPressed(false);
+        setIsDragging(false);
+        setDraggedNode(null);
+        setEdgeStart(null);
+        setEdgePreview(null);
+        setEditingNode(null);
+        setIsPanning(false);
+        setPanStart({ x: 0, y: 0 });
+        setPanOffset({ x: 0, y: 0 });
+        setSelectedNodeId(null);
+        setHistory([]);
+        setCurrentStateIndex(-1);
+        setFocusedNodeId(null);
+        setSelectedPort(null);
+        setIsMetadataEditorFocused(false);
+
+        // Clear local storage
+        // localStorage.removeItem('graphState');
+
+        // Save the empty state
+        saveState([], []);
+    };
+
+
     return (
         <div className="editor-container">
             <div className="toolbar">
                 <button onClick={handleSave}>Save</button>
                 <button onClick={handleLoad}>Load</button>
                 <button onClick={exportToDot}>Export to DOT</button>
+                <button onClick={resetAllState}>Reset All</button>
+                {/* Add the new load from local storage button */}
             </div>
             <div className="main-content" ref={mainContentRef}>
                 <div className="svg-container">
